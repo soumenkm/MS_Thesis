@@ -1,0 +1,33 @@
+% Chapter Template
+
+\chapter{Conclusions}\singlespacing % Main chapter title
+
+\label{Chapter6} % Change X to a consecutive number; for referencing this chapter elsewhere, use \ref{ChapterX}
+
+\lhead{Chapter 6. \emph{Conclusions}} % Change X to a consecutive number; this is for the header on each page - perhaps a shortened title
+
+%----------------------------------------------------------------------------------------
+%	SECTION 1
+%----------------------------------------------------------------------------------------
+
+\section{Summary of Research Contributions and Progress}
+\label{sec:conclusion_summary}
+This report has documented a comprehensive and systematic research program aimed at addressing the critical challenges of enhancing and controlling Large Language Models for low-resource languages. The work has progressed methodically from foundational interpretability and advanced theoretical explorations to direct, practical application, yielding significant insights that have actively shaped the research trajectory.
+
+The research journey commenced with a foundational investigation into the internal mechanisms of multilingual models. This work, presented at the NAACL 2024 Workshop \citep{mondal2025language}, rigorously tested the hypothesis that language-specific neurons could be leveraged for cross-lingual transfer. The key finding—that direct interventions on these neurons are insufficient for improving downstream task performance due to their polysemantic nature—provided a critical, empirical justification for pivoting away from surgical internal edits and towards more holistic, output-level control mechanisms.
+
+To build the necessary expertise for such control, a second foundational project was undertaken, culminating in a full paper submission to NeurIPS 2025 \citep{mondal2025fairpo}. This research, \textit{FairPO}, involved designing a novel, sophisticated framework for fair multi-label classification. It required moving beyond the standard application of preference optimization to adapt its core principles to a new domain, integrate them with group-robust optimization (GRPO), and handle dynamically generated preference sets. This project provided an indispensable, deep, and practical mastery of advanced model alignment frameworks.
+
+The current research phase applies this expertise to the task of low-resource Neural Machine Translation. Preliminary experiments were conducted to fine-tune Llama 3.1 for English-to-Bengali translation using Direct Preference Optimization (DPO). The initial results were unexpected, showing a significant degradation in performance compared to both a one-shot and a standard fine-tuning baseline. This negative result is, in itself, a crucial scientific finding, highlighting the non-trivial complexities and potential instabilities of applying preference optimization in this specific context. It has since prompted a necessary and rigorous debugging phase, which is currently underway.
+
+\section{Overall Thesis Contribution and Future Outlook}
+\label{sec:conclusion_outlook}
+The primary contribution of the work to date is a multi-faceted investigation into model control for low-resource NLP. This includes a peer-reviewed contribution that challenges a prevailing hypothesis in interpretability, a conference-submitted paper that showcases mastery of advanced optimization, and a critical empirical finding that informs the practical application of DPO.
+
+The future work is now well-defined and strategically planned. The immediate priority, is to systematically diagnose the issues encountered in the NMT experiments to produce a conclusive result. Following this consolidation phase, the research will advance to a novel and ambitious objective: the development of a \textit{unified, agentic framework for low-resource QA and translation}.
+
+This proposed framework represents a significant conceptual step forward, aiming to synthesize the strengths of several state-of-the-art paradigms. It will use the agentic, multi-step reasoning pipeline of \textit{KGAREVION} \citep{su2025kgarevion} as its blueprint, adapt it for unstructured text retrieval, and instill robustness against noisy context by incorporating the training principles of \textit{RAFT} \citep{zhang2024raft}. Critically, the final generation module of this agent will be enhanced using the preference optimization techniques from Phase 1 of this research, creating a powerful synergy between factually grounded reasoning and high-quality linguistic generation.
+
+
+
+

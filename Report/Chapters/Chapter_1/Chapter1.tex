@@ -1,0 +1,178 @@
+\chapter{Introduction}
+\label{ch:introduction}
+
+\section{Motivation}
+\label{sec:intro-motivation}
+
+Large language models perform well on many natural language tasks, but their
+performance is not the same across languages. Models trained mostly on English and
+a few other high-resource languages do worse on low-resource languages, even
+though the same parameters are used for all of them
+\citep{conneau2018xnli, shi2022mgsm}. A second issue is that it is hard to say
+which part of a model is responsible for a given behaviour, and equally hard to
+change that behaviour by editing a specific part. An intervention that looks
+targeted often has little effect on the actual task.
+
+Two lines of research address these issues from different directions. One studies
+the model from the inside and asks where a capability is stored. Work on
+language-specific neurons follows this direction, suggesting that a small set of
+neurons accounts for much of how a model handles a particular language, and that
+these neurons can be found from activation statistics
+\citep{tang2024language, kojima2024multilingual}. The other line works through the
+training objective, using preference-based and reinforcement-learning methods to
+push model outputs towards a desired signal
+\citep{rafailov2023direct, shao2024deepseekmath}. This thesis looks at both
+directions together. The common observation across the studies reported here is
+that editing a localized part of a model is often less useful than changing the
+objective the model is trained on.
+
+The problem matters for two reasons. In practice, low-resource languages and
+imbalanced label sets are settings where data is limited, so a method that
+actually moves a model's behaviour, rather than only appearing to, is worth
+having. From a research point of view, the cases where an intervention fails are
+informative: a neuron edit that changes nothing, or a training signal that moves a
+representation without improving the task, tells us something about how these
+models are organized.
+
+\section{Problem Statement}
+\label{sec:intro-problem}
+
+This thesis studies the gap between what a model can do and what its training
+makes it do, in two settings: cross-lingual learning in multilingual language
+models, and optimization with competing objectives in multi-label classification.
+We break this into three sub-problems.
+
+\begin{enumerate}
+	\item \textbf{Can localized internal components be used to control
+		cross-lingual behaviour?} If language-specific neurons encode a language in a
+	separable way \citep{tang2024language, kojima2024multilingual}, then editing
+	them should improve performance on that language. The problem is to test this
+	on downstream tasks, not only on language of generation, and to see whether
+	the interventions give real gains.
+	
+	\item \textbf{How does reinforcement-learning fine-tuning change cross-lingual
+		behaviour, and why does it help some languages but not others?} Training a
+	multilingual model with a group-relative reinforcement objective
+	\citep{shao2024deepseekmath} improves some languages and not others. The
+	problem is to describe this difference and find the factor that controls it,
+	rather than attributing it loosely to how low-resource a language is.
+	
+	\item \textbf{How can a model be improved on a chosen subset of labels without
+		hurting the rest?} In multi-label classification, rare or important labels are
+	not well served by a uniform loss, but improving them naively can degrade
+	frequent labels. The problem is to design an objective that targets the chosen
+	labels while protecting the others.
+\end{enumerate}
+
+\section{Research Questions}
+\label{sec:intro-questions}
+
+From these sub-problems, the thesis investigates the following questions.
+
+\begin{itemize}
+	\item \textbf{Are language-specific neurons useful for cross-lingual
+		transfer?} Earlier work shows these neurons can control the \emph{language} a
+	model generates in \citep{tang2024language, kojima2024multilingual}. It is not
+	clear whether editing them improves performance on tasks such as natural
+	language inference \citep{conneau2018xnli} and question answering
+	\citep{artetxe2020cross} for low-resource languages.
+	
+	\item \textbf{Does a multilingual model process its reasoning in English at
+		middle layers, and is that what holds back low-resource languages?} One
+	hypothesis is that multilingual transformers work in an English-leaning space
+	at middle layers \citep{wendler2024llamas}. We ask whether this holds during
+	reinforcement-learning fine-tuning, and whether this or some other factor
+	explains why certain languages do not improve.
+	
+	\item \textbf{Can preference optimization, which was developed for text
+		generation, be used to manage competing objectives in a classification
+		setting?} Methods such as DPO \citep{rafailov2023direct}, CPO
+	\citep{xu2024contrastive}, and SimPO \citep{meng2024simpo} were built for
+	generation. We ask whether their main ideas, together with a group-robust
+	balancing method \citep{ramesh2024group}, can give targeted and fair
+	improvements in multi-label classification.
+\end{itemize}
+
+\section{Research Details}
+\label{sec:intro-details}
+
+The thesis contains three studies, one for each question above. We describe them
+briefly here and in full in the later chapters.
+
+\subsection{Language-Specific Neurons and Cross-Lingual Transfer}
+\label{sec:intro-neurons}
+
+The first study, published at the Insights from Negative Results workshop at
+NAACL~2025 \citep{mondal2025language}, tests whether language-specific neurons can
+be used to improve cross-lingual transfer. We identify these neurons in Llama~3.1
+and Mistral Nemo using Language Activation Probability Entropy and
+activation-probability thresholding \citep{tang2024language}, and we try two kinds
+of intervention: editing neuron activations at test time, and fine-tuning only
+those neurons with a low-rank adapter \citep{hu2022lora}, on XNLI
+\citep{conneau2018xnli} and XQuAD \citep{artetxe2020cross}. The interventions give
+gains of less than one accuracy point on low-resource languages. We also find that
+setting a neuron's activation to zero does not turn off the behaviour assigned to
+it, and that the neurons found for different languages are not independent of one
+another. These results do not support a clean, component-level account of how a
+model handles language, and are consistent with a distributed encoding in which
+single neurons carry more than one function \citep{elhage2022superposition}.
+
+\subsection{Cross-Lingual Behaviour during Policy Optimization}
+\label{sec:intro-grpo}
+
+The second study looks at how cross-lingual behaviour changes during
+reinforcement-learning fine-tuning, rather than in a fixed model. We fine-tune
+Qwen2.5-7B-Instruct on the MGSM benchmark \citep{shi2022mgsm} using Group Relative
+Policy Optimization \citep{shao2024deepseekmath} with a low-rank adapter, and we
+measure the model at regular checkpoints. The measurements cover task accuracy,
+the language of the model's intermediate predictions read off with the logit lens,
+and the geometry of the residual-stream representations compared with centred
+kernel alignment. Six of the seven languages improve over training. The exception
+is Telugu, which has the fewest dedicated tokens in the Qwen2.5 tokeniser and
+whose internal representations change the most while its accuracy stays flat. We
+do not find the middle-layer processing in English that the latent-language
+hypothesis predicts \citep{wendler2024llamas}. Instead, the per-language outcome
+follows tokeniser coverage rather than language identity: when the vocabulary
+cannot represent a language at a fine enough level, the reward signal is too
+coarse to give a useful gradient.
+
+\subsection{Robust Preference Optimization for Multi-Label Classification}
+\label{sec:intro-fairpo}
+
+The third study, published at the OPT workshop at NeurIPS~2025
+\citep{mondal2025fairpo}, uses preference optimization as a tool rather than as an
+object of study. We propose FairPO, a method for multi-label classification that
+splits the labels into a privileged group and a non-privileged group. The
+privileged group is trained with a preference-based objective, adapted from DPO
+\citep{rafailov2023direct}, CPO \citep{xu2024contrastive}, and SimPO
+\citep{meng2024simpo}, that makes the model prefer a true label over the incorrect
+labels most likely to be confused with it. The non-privileged group is kept close
+to a reference model by a constrained objective, which prevents its performance
+from dropping. The two objectives pull against each other, and we balance them
+with a Group Robust Preference Optimization formulation \citep{ramesh2024group}
+set up as a minimax problem over the groups. On MS-COCO and NUS-WIDE, FairPO
+improves accuracy on rare privileged labels and leaves frequent labels almost
+unchanged, doing better than the baselines we compare against.
+
+We note one point about naming. Two different methods in this thesis share the
+abbreviation GRPO. In Section~\ref{sec:intro-grpo} and
+Chapter~\ref{ch:grpo-crosslingual}, GRPO means Group Relative Policy Optimization
+\citep{shao2024deepseekmath}, a reinforcement-learning algorithm. In
+Section~\ref{sec:intro-fairpo} and Chapter~\ref{ch:fairpo}, the balancing method
+is Group Robust Preference Optimization \citep{ramesh2024group}, which comes from
+the robust optimization literature. We write out the full name the first time it
+appears in each chapter and do not use the abbreviation on its own to tell them
+apart.
+
+\section{Thesis Organization}
+\label{sec:intro-organization}
+
+The rest of the thesis is organized as follows.
+Chapter~\ref{ch:related-work} reviews related work on multilingual
+representations, language-specific neurons, preference optimization, and robust
+optimization. Chapter~\ref{ch:neurons} presents the study of language-specific
+neurons and cross-lingual transfer. Chapter~\ref{ch:grpo-crosslingual} presents
+the study of cross-lingual behaviour during Group Relative Policy Optimization.
+Chapter~\ref{ch:fairpo} presents FairPO and its results on multi-label
+benchmarks. Chapter~\ref{ch:conclusion} summarizes the findings, states their
+limitations, and describes directions for future work.

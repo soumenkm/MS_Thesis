@@ -1,0 +1,182 @@
+\chapter{Related Work}
+\label{ch:related-work}
+
+This chapter reviews prior work for the three studies in this thesis. We group it
+into three sections. Section~\ref{sec:rw-neurons} covers language-specific neurons
+and how earlier work has tried to use internal components to control multilingual
+behaviour. Section~\ref{sec:rw-crosslingual} covers how multilingual models
+process language across layers, and how this has been studied during and after
+RL fine-tuning. Section~\ref{sec:rw-fairpo} covers multi-label
+classification, preference optimization, and group-robust optimization, which are
+the parts that FairPO builds on.
+
+\section{Language-Specific Neurons and Internal Control of Multilingual Models}
+\label{sec:rw-neurons}
+
+\subsection{Identifying Language-Specific Neurons}
+\label{sec:rw-neurons-id}
+
+A line of work argues that a small number of neurons in a multilingual model are
+responsible for handling a particular language. \citet{tang2024language} propose
+Language Activation Probability Entropy (LAPE), which marks a neuron as
+language-specific when it activates for one or a few languages and stays quiet for
+the rest, and they show that these neurons sit mostly in the first and last layers
+of the model. \citet{kojima2024multilingual} study decoder-based models and find
+neurons that fire for a single language, with little overlap across languages.
+Earlier work on encoder models reached a related conclusion:
+\citet{durrani2020analyzing} show that small sets of neurons capture specific
+linguistic properties, and \citet{bhattacharya2023unveiling} study language
+specificity in the feed-forward layers of transformer models. These methods differ
+in how they score and threshold neurons, but they share the assumption that
+language is, at least in part, stored in identifiable units.
+
+\subsection{Controlling and Editing Through Neurons}
+\label{sec:rw-neurons-control}
+
+Several papers go further and use these neurons to change model behaviour.
+\citet{tang2024language} and \citet{kojima2024multilingual} show that turning
+language-specific neurons on or off can steer the language a model generates in.
+\citet{zhao2024multilingualism} detect language-specific neurons with a method
+that needs no labelled data, and report that fine-tuning a small set of them
+improves performance in a target language. Related ideas appear in machine
+translation and style transfer: \citet{zhu2024landermt} route language-aware
+neurons to reduce catastrophic forgetting during translation fine-tuning,
+\citet{xie2021importance} allocate neurons between shared and language-specific
+knowledge to improve translation, and \citet{lai2024style} steer text style by
+turning off source-style neurons. Beyond language, \citet{huo2024mmneuron} study
+domain-specific neurons in multimodal models and report accuracy gains from
+manipulating them. \citet{zhang2024multilingual} edit factual knowledge across
+languages using language-agnostic factual neurons.
+
+\subsection{Limits of Neuron-Level Control}
+\label{sec:rw-neurons-limits}
+
+This control is not always reliable. A reason often given is that single neurons
+do not correspond to single functions. \citet{elhage2022superposition} describe
+superposition, where a neuron takes part in more than one feature, so editing it
+affects several behaviours at once. Work that traces facts across languages also
+suggests that knowledge is partly shared and partly transferred rather than stored
+in separate per-language units \citep{zhao2024tracing}. Most of the steering
+results above are reported on generation, that is, on which language the model
+writes in, and not on whether the model answers a downstream task correctly. The
+study in Chapter~\ref{ch:neurons} \citep{mondal2025language} works in this gap. It
+tests whether neuron interventions help on XNLI \citep{conneau2018xnli} and XQuAD
+\citep{artetxe2020cross} for low-resource languages, and finds that they do not,
+that setting an activation to zero does not turn the neuron off, and that neurons
+found for different languages are not independent.
+
+\section{Cross-Lingual Processing in Language Models}
+\label{sec:rw-crosslingual}
+
+\subsection{The English-Centric View of Multilingual Processing}
+\label{sec:rw-crosslingual-english}
+
+A second group of papers studies how a multilingual model moves information across
+its layers when given a non-English input. \citet{wendler2024llamas} track the
+hidden states of Llama-2 on a word-translation task and describe three stages: the
+hidden states start far from any output token, then pass through a region where
+the model can already decode the answer but assigns more probability to its
+English form, and finally move to a region specific to the input language. They
+read this as evidence that the model works in a space closer to English at middle
+layers. \citet{zhao2024multilingualism} propose a similar workflow, in which the
+model understands the input, works in English in the middle layers, and produces
+output in the target language at the end. \citet{lu2025paths} look at factual
+recall and describe a pipeline in which the model uses an English-centric recall
+mechanism and then translates the English answer back into the target language;
+they point to two failure points, weak use of the English mechanism and wrong
+translation back to the target, and propose vector interventions that improve
+recall accuracy. Together these papers support the idea that English plays a
+special role inside the model, but they study translation and factual recall in
+fixed models rather than reasoning during training.
+
+\subsection{Tools for Studying Internal Representations}
+\label{sec:rw-crosslingual-tools}
+
+The studies above rely on a few standard tools. The logit lens
+\citep{nostalgebraist2020logitlens} reads out the model's prediction at each layer
+by applying the output head to intermediate hidden states, which gives a
+per-layer view of what the model would predict. To compare representations,
+\citet{kornblith2019similarity} introduce Centered Kernel Alignment (CKA), a
+similarity measure between two sets of representations that is invariant to
+orthogonal transformations and isotropic scaling. CKA has been used to compare
+representations across languages in multilingual models
+\citep{conneau2020emerging}. The study in Chapter~\ref{ch:grpo-crosslingual} uses
+both tools: the logit lens to check whether the model predicts in English at
+middle layers, and CKA both across languages and across training checkpoints to
+measure how much the representations move during fine-tuning.
+
+\subsection{RL for Reasoning and Its Effect on Languages}
+\label{sec:rw-crosslingual-rl}
+
+Reinforcement learning is now a common way to improve reasoning in language
+models. Group Relative Policy Optimization (GRPO) \citep{shao2024deepseekmath}
+removes the separate value model used in PPO and instead estimates the baseline
+from a group of sampled outputs for the same prompt. \citet{guo2025deepseekr1}
+use GRPO to train a reasoning model with rewards based only on the correctness of
+the final answer. Most of this work is evaluated on English or on a mixed set of
+languages without separating the effect per language. Multilingual reasoning
+itself is measured on benchmarks such as MGSM \citep{shi2022mgsm}, which
+translates grade-school math problems into several languages. A separate line of
+work shows that the cause of cross-lingual gaps can lie in the tokeniser:
+\citet{petrov2023tokenizer} show that the same text can be split into very
+different numbers of tokens across languages, which puts low-resource languages at
+a disadvantage before the model runs. Chapter~\ref{ch:grpo-crosslingual} connects
+these threads. It fine-tunes a multilingual model on MGSM with GRPO, checks the
+English-centric processing claim during training, and finds that whether GRPO can
+teach a language tracks tokeniser coverage rather than language identity.
+
+\section{MLC and Preference Optimization}
+\label{sec:rw-fairpo}
+
+\subsection{Multi-Label Classification and Class Imbalance}
+\label{sec:rw-fairpo-mlc}
+
+Multi-label classification usually trains a model by minimizing an aggregate loss,
+most often binary cross-entropy, over all labels at once. This treats every label
+the same, which is a problem when some labels are rare or more important than
+others. \citet{charte2015imbalance} study class imbalance in multi-label data and
+the resampling methods used to address it. \citet{lin2018focal} propose Focal
+Loss, which lowers the weight of easy examples so that training focuses on harder
+ones, but it still scores each label on its own and does not compare a true label
+against a specific competing one. Work on long-tailed multi-label recognition
+\citep{guo2021longtailed} and on fairness in multi-label settings
+\citep{liu2023simfair} addresses related problems, but does not target a chosen
+subset of labels while protecting the rest. FairPO \citep{mondal2025fairpo}, the
+study in Chapter~\ref{ch:fairpo}, fills this gap by splitting the labels into a
+privileged group to improve and a non-privileged group to maintain. The standard
+benchmarks here are MS-COCO \citep{lin2015coco} and NUS-WIDE
+\citep{chua2009nuswide}, with a Vision Transformer backbone
+\citep{dosovitskiy2021vit}, which FairPO also uses.
+
+\subsection{Preference Optimization}
+\label{sec:rw-fairpo-po}
+
+Preference optimization was developed to align language models from preference
+pairs. Direct Preference Optimization (DPO) \citep{rafailov2023direct} turns the
+reinforcement-learning-from-human-feedback objective into a simple classification
+loss over preferred and dispreferred outputs, without a separate reward model.
+Several reference-free variants followed. Contrastive Preference Optimization
+(CPO) \citep{xu2024contrastive} removes the reference model and adds a
+negative-log-likelihood term to keep absolute quality. Simple Preference
+Optimization (SimPO) \citep{meng2024simpo} uses the length-normalized average
+log-probability as the implicit reward and adds a target margin. These methods
+were built for text generation, where a preference is between two full sequences.
+FairPO adapts their core idea, preferring a correct option over a confusing one,
+to per-label scores in classification, so that the model is trained to score a
+true label above the incorrect label most likely to be confused with it.
+
+\subsection{Group-Robust Optimization}
+\label{sec:rw-fairpo-dro}
+
+The last component is the method used to balance the two groups. Distributionally
+Robust Optimization, and in particular Group DRO \citep{sagawa2020dro}, minimizes
+the worst-case loss over a set of predefined groups instead of the average loss,
+which improves performance on the weakest group. Group Robust Preference
+Optimization \citep{ramesh2024group} brings this idea to preference learning,
+balancing performance across preference groups with adaptive weights in a minimax
+setup. FairPO uses this formulation, but defines the groups by the label partition
+rather than by preference source, and balances the preference-based loss for the
+privileged group against the constrained loss for the non-privileged group. We
+note again that this Group Robust Preference Optimization is a different method
+from the Group Relative Policy Optimization of
+Section~\ref{sec:rw-crosslingual-rl}, despite the shared abbreviation.

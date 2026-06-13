@@ -1,0 +1,42 @@
+\documentclass[a4paper]{article}
+\usepackage{tikz, amsmath, amssymb, standalone}
+\usetikzlibrary{arrows.meta, positioning}
+\tikzstyle{box} = [rectangle, rounded corners, 
+minimum width=3cm, 
+minimum height=1cm,
+text centered, 
+draw=black, 
+fill=red!30]
+
+
+\begin{document}
+%	\begin{tikzpicture}
+%		
+%		% Define the canvas boundary (optional, for visualization)
+%		\draw[thick, black] (0,0) rectangle (10,10);
+%		
+%		% Place the input node at (0,2)
+%		\node[box] (input) at (0,2) {$\mathbf{H}^{i-1}$ \quad  $\in \mathbb{R}^{T \times d}$};
+%		
+%		
+%		% Nodes
+%%		\node[box] (input) {$\mathbf{H}^{i-1}$ \quad  $\in \mathbb{R}^{T \times d}$};
+%		\node[box, right=2.5cm of input] (selfattn) {$\mathbf{W}_1^i, \mathbf{W}_2^i, \mathbf{W}_3^i, \mathbf{W}_o^i$ \\ Self-Attention};
+%		\node[box, below right=2.2cm and 1cm of selfattn] (Hhat) {$\hat{\mathbf{H}}^i$ \\ $\in \mathbb{R}^{T \times d}$};
+%		\node[box, below=2.5cm of selfattn] (W3) {$\mathbf{W}_3^i$ \\ $\in \mathbb{R}^{4d \times d}$};
+%		\node[box, below=2.5cm of W3] (SiLU) {SiLU($\cdot$)};
+%		\node[box, left=2.5cm of SiLU] (W1) {$\mathbf{W}_1^i$ \\ $\in \mathbb{R}^{4d \times d}$};
+%		\node[box, right=2.5cm of SiLU] (W2) {$\mathbf{W}_2^i$ \\ $\in \mathbb{R}^{d \times 4d}$};
+%		
+%		% Edges
+%%		\draw[arrow] (input) -- (selfattn);
+%%		\draw[arrow] (selfattn) -- (Hhat);
+%%		\draw[arrow] (Hhat) -- (W3);
+%%		\draw[arrow] (W3) -- (SiLU);
+%%		\draw[arrow] (SiLU) -- (W2);
+%%		\draw[arrow] (W1) -- (SiLU);
+%		
+%	\end{tikzpicture}
+\include{test.tex} % Adds the standalone file with a page break
+
+\end{document}

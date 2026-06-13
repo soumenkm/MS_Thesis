@@ -1,0 +1,24 @@
+% ============================================================
+% macros.tex -- shared math macros for the thesis
+% \input{macros} in main.tex, before \begin{document}
+	% ============================================================
+	
+	% ---- Math operators and sets ----
+	\newcommand{\E}{\mathbb{E}}
+	\newcommand{\R}{\mathbb{R}}
+	\DeclareMathOperator*{\argmax}{arg\,max}
+	\DeclareMathOperator*{\argmin}{arg\,min}
+	
+	% ---- FairPO notation ----
+	\newcommand{\dataset}{\mathcal{D}}
+	\newcommand{\labels}{\mathcal{T}}                              % set of all T labels
+	\newcommand{\privileged}{\mathcal{P}}                          % privileged label set
+	\newcommand{\nonprivileged}{\bar{\mathcal{P}}}                 % non-privileged label set
+	\newcommand{\confusing}{S_{il}}                                % confusing set for (i,l)
+	\newcommand{\model}{m}                                         % model score function
+	\newcommand{\params}{\mathbf{w}}                               % model parameters
+	\newcommand{\Params}{\{\mathbf{w}_t \vert t \in \mathcal{T}\}} % all model parameters
+	\newcommand{\refparams}{\hat{\mathbf{w}}}                      % reference parameters
+	\newcommand{\Refparams}{\{\hat{\mathbf{w}}_t \vert t \in \mathcal{T}\}} % all reference parameters
+	\newcommand{\loss}{\mathcal{L}}
+	\newcommand{\baseloss}{\ell}                                   % base loss (BCE)
