@@ -301,7 +301,7 @@
 \newenvironment{abstract}
 {
   \btypeout{Abstract Page}
-  \thispagestyle{empty}
+  \thispagestyle{plain}
   %\null\vfil
   \begin{flushleft}
     \setlength{\parskip}{0pt}
@@ -428,6 +428,19 @@
 	\end{center}%
 	{\normalsize #1\par}% Content passed as #1
 	\vfil\vfil\null% Space adjustments
+}
+
+\newcommand\certificate[1]{%
+	\btypeout{Certificate}
+	\addtotoc{Certificate}
+	\thispagestyle{plain}
+	
+	\begin{center}
+		{\huge{\textit{Certificate}}\par}
+	\end{center}
+	
+	{\normalsize #1\par}
+	\vfil\vfil\null
 }
 
 \newcommand\approval[1]{%

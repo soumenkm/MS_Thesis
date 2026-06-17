@@ -1,33 +1,121 @@
-% Chapter Template
+\chapter{Conclusion and Future Work}
+\label{ch:conclusion}
 
-\chapter{Conclusions}\singlespacing % Main chapter title
+\section{Summary of the Thesis}
+\label{sec:conclusion-summary}
 
-\label{Chapter6} % Change X to a consecutive number; for referencing this chapter elsewhere, use \ref{ChapterX}
+This thesis studied two questions about large neural models: where a capability sits
+inside a model, and how the training objective changes what the model does. We
+worked on these across three studies, two in multilingual language models and one in
+multi-label classification, and the studies pointed in a consistent direction.
+Acting on a localized part of a model does not reliably change its behaviour, while
+acting through the training objective does, though only where the training signal can
+actually reach.
 
-\lhead{Chapter 6. \emph{Conclusions}} % Change X to a consecutive number; this is for the header on each page - perhaps a shortened title
+Chapter~\ref{ch:neurons} tested whether language-specific neurons can be used to
+improve cross-lingual transfer. We identified these neurons in Llama~3.1 and Mistral
+Nemo with two methods, LAPE and activation-probability thresholding, and tried both
+test-time edits and neuron-targeted fine-tuning on XNLI and XQuAD. The interventions
+did not improve performance on low-resource languages, and several of them degraded
+it. We also found that the neurons are shared across languages, that setting their
+activations to zero does not turn them off, and that they do no better than random
+neurons under fine-tuning. The two identification methods place the neurons in
+different parts of the model yet reach the same result, which suggests the negative
+finding is about how language is represented rather than how the neurons are picked.
 
-%----------------------------------------------------------------------------------------
-%	SECTION 1
-%----------------------------------------------------------------------------------------
+Chapter~\ref{ch:grpo-crosslingual} moved from a fixed model to training dynamics. We
+fine-tuned Qwen2.5-7B-Instruct on the MGSM math benchmark with GRPO and tracked the
+model across checkpoints with five measurements. GRPO changed accuracy very little
+for any of the seven languages, and Telugu stayed far below the rest throughout. The
+model reads out as English through the early and middle layers and surfaces the
+target language only in the last few layers, but this structure was present from the
+start and did not change over training, so GRPO did not cause or deepen cross-lingual
+collapse. The one language that did not improve, Telugu, was also the one whose
+representations training moved the most. We connected this to tokeniser coverage:
+when a language has very few dedicated tokens, the reward signal is too coarse to
+give a useful gradient, so training disturbs the representations without improving the
+task.
 
-\section{Summary of Research Contributions and Progress}
-\label{sec:conclusion_summary}
-This report has documented a comprehensive and systematic research program aimed at addressing the critical challenges of enhancing and controlling Large Language Models for low-resource languages. The work has progressed methodically from foundational interpretability and advanced theoretical explorations to direct, practical application, yielding significant insights that have actively shaped the research trajectory.
+Chapter~\ref{ch:fairpo} turned to designing an objective rather than analysing one.
+We proposed FairPO, a framework for multi-label classification that splits the labels
+into a privileged group to improve and a non-privileged group to maintain. The
+privileged group is trained with a preference loss that prefers a true label over the
+label most likely to be confused with it, with a BCE fallback for stability; the
+non-privileged group is held near a reference model by a constrained loss; and the
+two are balanced with a Group Robust Preference Optimization formulation. On MS-COCO
+and NUS-WIDE, the CPO variant improved the rare privileged labels while leaving the
+frequent labels almost unchanged, and the ablations showed that each part of the
+framework contributes to this.
 
-The research journey commenced with a foundational investigation into the internal mechanisms of multilingual models. This work, presented at the NAACL 2024 Workshop \citep{mondal2025language}, rigorously tested the hypothesis that language-specific neurons could be leveraged for cross-lingual transfer. The key finding—that direct interventions on these neurons are insufficient for improving downstream task performance due to their polysemantic nature—provided a critical, empirical justification for pivoting away from surgical internal edits and towards more holistic, output-level control mechanisms.
+\section{Main Findings}
+\label{sec:conclusion-findings}
 
-To build the necessary expertise for such control, a second foundational project was undertaken, culminating in a full paper submission to NeurIPS 2025 \citep{mondal2025fairpo}. This research, \textit{FairPO}, involved designing a novel, sophisticated framework for fair multi-label classification. It required moving beyond the standard application of preference optimization to adapt its core principles to a new domain, integrate them with group-robust optimization (GRPO), and handle dynamically generated preference sets. This project provided an indispensable, deep, and practical mastery of advanced model alignment frameworks.
+Taken together, the three studies support a few points.
 
-The current research phase applies this expertise to the task of low-resource Neural Machine Translation. Preliminary experiments were conducted to fine-tune Llama 3.1 for English-to-Bengali translation using Direct Preference Optimization (DPO). The initial results were unexpected, showing a significant degradation in performance compared to both a one-shot and a standard fine-tuning baseline. This negative result is, in itself, a crucial scientific finding, highlighting the non-trivial complexities and potential instabilities of applying preference optimization in this specific context. It has since prompted a necessary and rigorous debugging phase, which is currently underway.
+\begin{itemize}
+	\item Editing a small, localized set of internal components is not a reliable way
+	to change a model's cross-lingual behaviour. This held for neuron interventions
+	in Chapter~\ref{ch:neurons}, and it is consistent with
+	Chapter~\ref{ch:grpo-crosslingual}, where the English-leaning middle of the
+	stack, the localized mechanism the collapse hypothesis points to, was not what
+	GRPO acted on and not what decided the outcome.
+	
+	\item The training objective is the more effective place to act, but its effect
+	is bounded by whether the training signal can reach the model at a fine enough
+	level. GRPO improved a language only when the tokeniser gave it enough
+	resolution, and FairPO improved the privileged labels because its objective acted
+	directly on the pairs of labels that needed separating.
+	
+	\item A method that targets a chosen part of the label space, and protects the
+	rest, can improve the targeted part without measurable harm to the rest, as
+	FairPO showed. This is the constructive side of the same idea that the two
+	analysis chapters reached from the negative side.
+\end{itemize}
 
-\section{Overall Thesis Contribution and Future Outlook}
-\label{sec:conclusion_outlook}
-The primary contribution of the work to date is a multi-faceted investigation into model control for low-resource NLP. This includes a peer-reviewed contribution that challenges a prevailing hypothesis in interpretability, a conference-submitted paper that showcases mastery of advanced optimization, and a critical empirical finding that informs the practical application of DPO.
+\section{Limitations}
+\label{sec:conclusion-limitations}
 
-The future work is now well-defined and strategically planned. The immediate priority, is to systematically diagnose the issues encountered in the NMT experiments to produce a conclusive result. Following this consolidation phase, the research will advance to a novel and ambitious objective: the development of a \textit{unified, agentic framework for low-resource QA and translation}.
+The studies have limitations, which are stated in full in each chapter and collected
+here. The neuron study looks only at the MLP layers and not at attention, uses two
+models and two tasks, and relies on statistics from Wikipedia text for the test-time
+interventions. The GRPO study uses one model family and one task, fine-tunes a
+low-rank adapter on the attention projections only, and depends on a logit-lens
+readout and a judge-based reward, both of which are imperfect; the tokeniser-coverage
+counts are also approximate. The FairPO study uses a frequency-based label partition
+on two image benchmarks, depends on a confusing set that changes during training, and
+needs care in tuning the group-robust balancing. None of the three studies makes
+claims beyond the models, languages, tasks, and datasets it uses.
 
-This proposed framework represents a significant conceptual step forward, aiming to synthesize the strengths of several state-of-the-art paradigms. It will use the agentic, multi-step reasoning pipeline of \textit{KGAREVION} \citep{su2025kgarevion} as its blueprint, adapt it for unstructured text retrieval, and instill robustness against noisy context by incorporating the training principles of \textit{RAFT} \citep{zhang2024raft}. Critically, the final generation module of this agent will be enhanced using the preference optimization techniques from Phase 1 of this research, creating a powerful synergy between factually grounded reasoning and high-quality linguistic generation.
+\section{Future Work}
+\label{sec:conclusion-future}
 
+Several directions follow from this work.
 
+\paragraph{Cross-lingual transfer beyond neuron edits.}
+The neuron study ruled out one approach but did not solve the underlying problem of
+weak low-resource performance. The finding that language is spread across the network
+rather than held in a few neurons suggests looking at interventions that act on
+larger parts of the model, or on the training data and objective, rather than on
+single neurons.
 
+\paragraph{Tokeniser coverage and low-resource reasoning.}
+The GRPO study points to tokeniser coverage as the factor that decides whether
+training can teach a language. A direct next step is to test this more carefully, for
+example by changing the tokeniser or adding tokens for a low-coverage language and
+checking whether GRPO can then improve it. This would tell us whether coverage is the
+cause or only a correlate.
+
+\paragraph{Broader testing of the GRPO findings.}
+The cross-lingual study used one model and one task. The same measurements could be
+run on other model families, other reasoning tasks, and more languages, to see
+whether the flat per-layer pattern and the coverage effect hold more generally.
+
+\paragraph{Extending FairPO.}
+FairPO was tested on image multi-label classification with a frequency-based
+partition. It could be applied to other sources of disparity, such as label
+importance set by domain knowledge, and to other settings, including generation
+tasks, where the privileged and non-privileged groups would be defined over
+attributes rather than labels. The stability of the confusing set and the tuning of
+the group-robust balancing are also worth studying further, along with any
+theoretical analysis of when the minimax objective converges.
 

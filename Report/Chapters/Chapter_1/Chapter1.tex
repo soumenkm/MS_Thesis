@@ -127,14 +127,18 @@ Policy Optimization \citep{shao2024deepseekmath} with a low-rank adapter, and we
 measure the model at regular checkpoints. The measurements cover task accuracy,
 the language of the model's intermediate predictions read off with the logit lens,
 and the geometry of the residual-stream representations compared with centred
-kernel alignment. Six of the seven languages improve over training. The exception
-is Telugu, which has the fewest dedicated tokens in the Qwen2.5 tokeniser and
-whose internal representations change the most while its accuracy stays flat. We
-do not find the middle-layer processing in English that the latent-language
-hypothesis predicts \citep{wendler2024llamas}. Instead, the per-language outcome
-follows tokeniser coverage rather than language identity: when the vocabulary
-cannot represent a language at a fine enough level, the reward signal is too
-coarse to give a useful gradient.
+kernel alignment. Accuracy changes little across the seven languages over
+training, and Telugu stays far below the rest throughout. Looking inside the
+model, we find that it predicts in English through the early and middle layers and
+surfaces the target language only in the last few layers, in line with the
+latent-language hypothesis \citep{wendler2024llamas}. This pattern is already
+present in the base model and does not change over training, so the fine-tuning
+does not cause cross-lingual collapse. Telugu, the language that stays below the
+rest, also has the fewest dedicated tokens in the Qwen2.5 tokeniser and is the one
+whose representations change the most while its accuracy does not move. We trace
+the per-language outcome to tokeniser coverage rather than to language identity:
+when the vocabulary cannot represent a language at a fine enough level, the reward
+signal is too coarse to give a useful gradient.
 
 \subsection{Robust Preference Optimization for Multi-Label Classification}
 \label{sec:intro-fairpo}

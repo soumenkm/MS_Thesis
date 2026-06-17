@@ -12,7 +12,7 @@ a model predicts each of them. The usual way to train such a model is to minimiz
 one aggregate loss summed over all labels, which treats every label as equally
 important \citep{kiritchenko2006hierarchical, schietgat2010predicting}. The labels
 are rarely equal in practice. Some are rare, so their training signal is small next
-to the frequent ones \citep{Charte2015AddressingII}. Some matter more than others,
+to the frequent ones \citep{charte2015imbalance}. Some matter more than others,
 such as a rare disease against a common finding
 \citep{rajpurkar2017chexnetradiologistlevelpneumoniadetection}. And some are simply
 harder to tell apart from a close alternative. With an aggregate loss, the easy and
@@ -21,8 +21,8 @@ ones the model handles worst.
 
 The standard fixes do not close this gap. Binary cross-entropy scores each label on
 its own, so the signal for a rare label is easily drowned out by the frequent ones
-\citep{bce_loss, Charte2015AddressingII}. Focal Loss down-weights easy examples,
-but it still scores each label in isolation \citep{lin2018focallossdenseobject}.
+\citep{bce_loss, charte2015imbalance}. Focal Loss down-weights easy examples,
+but it still scores each label in isolation \citep{lin2018focal}.
 None of these teaches the model to separate a true label from the specific
 incorrect label it is being confused with. What is missing is an objective that can
 express a preference between two labels, so that the model learns to score a true
@@ -77,9 +77,8 @@ following.
 	generative models, to a discriminative classification task. For a privileged
 	label, FairPO finds the incorrect labels that are scored too close to it and
 	trains the model to prefer the true label over them. We give three variants,
-	based on DPO \citep{rafailov2023direct}, CPO
-	\citep{xu2024contrastivepreferenceoptimizationpushing}, and SimPO
-	\citep{meng2024simposimplepreferenceoptimization}.
+	based on DPO \citep{rafailov2023direct}, CPO \citep{xu2024contrastive}, and SimPO
+	\citep{meng2024simpo}.
 	
 	\item We balance the two group objectives with a Group Robust Preference
 	Optimization formulation \citep{ramesh2024group}, set up as a minimax problem
@@ -206,7 +205,7 @@ counterpart $k$ is sampled from $\confusing$ and the pair $(p,d)$ is set from
 $(l,k)$ and the ground truth.
 
 \paragraph{SimPO variant.}
-This variant adapts SimPO \citep{meng2024simposimplepreferenceoptimization} to give
+This variant adapts SimPO \citep{meng2024simpo} to give
 a reference-free preference loss with a target margin $\gamma > 0$, applied to the
 per-label scores:
 \begin{equation}
@@ -219,7 +218,7 @@ correctly. This term replaces the DPO term in the conditional objective of
 Equation~\ref{eq:fairpo-dpo-combined}.
 
 \paragraph{CPO variant.}
-The last variant adapts CPO \citep{xu2024contrastivepreferenceoptimizationpushing},
+The last variant adapts CPO \citep{xu2024contrastive},
 which is reference-free and adds a BCE regularizer to the preference term. When a
 confusing set exists, the loss is
 \begin{equation}
@@ -321,7 +320,7 @@ group-robust balancing and the non-privileged handling stay the same.
 \label{subsec:fairpo-data}
 
 We evaluate FairPO on two multi-label image benchmarks, MS-COCO~2014
-\citep{lin2015microsoftcococommonobjects} and NUS-WIDE \citep{chua2009nus}.
+\citep{lin2015coco} and NUS-WIDE \citep{chua2009nuswide}.
 MS-COCO has 80 object categories, with 82{,}783 training images and 40{,}504
 validation images, which we use as the test set. NUS-WIDE has 81 concept labels,
 with 161{,}789 training images and 107{,}859 test images under the common split.
@@ -339,7 +338,7 @@ domain importance.
 \label{subsec:fairpo-model}
 
 The base model is a Vision Transformer, \texttt{vit-base-patch16-224}
-\citep{dosovitskiy2021imageworth16x16words}, pre-trained on ImageNet-21k and
+\citep{dosovitskiy2021vit}, pre-trained on ImageNet-21k and
 fine-tuned on ImageNet-1k. We keep the backbone frozen except for its final encoder
 layer, which we leave trainable so the higher-level features can adapt. On top of
 the backbone, each label has its own non-linear MLP head that takes the
@@ -354,7 +353,7 @@ and the heads are independent across labels.
 
 We compare against three baselines. BCE-SFT trains the same model with binary
 cross-entropy; this is also the reference model $\refparams$ used by the FairPO
-objectives. Group DRO + BCE \citep{sagawa2019distributionally} applies
+objectives. Group DRO + BCE \citep{sagawa2020dro} applies
 distributionally robust optimization over label groups with a BCE loss. Focal Loss
 \citep{lin2018focallossdenseobject} down-weights easy examples. We report the three
 FairPO variants from Section~\ref{sec:fairpo-framework}: FairPO-DPO, FairPO-SimPO,
@@ -367,7 +366,7 @@ We report mean average precision (mAP), Sample F1, and Accuracy, each split into
 privileged group $\privileged$ and the non-privileged group $\nonprivileged$. The
 main quantity of interest is $\Delta\text{mAP}(\privileged)$, the change in mAP on
 the privileged group relative to a baseline. All trainable parameters are updated
-with AdamW \citep{loshchilov2019decoupledweightdecayregularization}. We train for at
+with AdamW \citep{loshchilov2019decoupled}. We train for at
 most 25 epochs with a batch size of 32, with early stopping on validation mAP using
 a patience of 5 epochs. Images are resized to $224 \times 224$, normalized with
 ImageNet statistics, and augmented with random horizontal flips and random resized
@@ -418,8 +417,8 @@ what makes the CPO variant the most practical choice.
 			& $\privileged$ & $\nonprivileged$ & $\privileged$ & $\nonprivileged$ & $\privileged$ & $\nonprivileged$ & (vs.\ Focal) & (vs.\ BCE) \\
 			\midrule
 			BCE-SFT \citep{bce_loss}                       & 86.32$_{\pm 0.11}$ & \textbf{90.65}$_{\pm 0.08}$ & 61.43$_{\pm 0.15}$ & \textbf{64.89}$_{\pm 0.12}$ & 94.89$_{\pm 0.09}$ & \textbf{98.12}$_{\pm 0.05}$ & -2.03 & Ref \\
-			GDRO + BCE \citep{sagawa2019distributionally}  & 87.92$_{\pm 0.12}$ & 90.41$_{\pm 0.09}$ & 62.31$_{\pm 0.20}$ & 64.75$_{\pm 0.13}$ & 95.72$_{\pm 0.10}$ & 98.05$_{\pm 0.05}$ & -0.43 & -0.24$^{\ddagger}$ \\
-			Focal Loss \citep{lin2018focallossdenseobject} & 88.35$_{\pm 0.14}$ & 89.81$_{\pm 0.12}$ & 63.15$_{\pm 0.16}$ & 64.18$_{\pm 0.15}$ & 96.11$_{\pm 0.12}$ & 97.90$_{\pm 0.07}$ & Ref   & -0.84 \\
+			GDRO + BCE \citep{sagawa2020dro}  & 87.92$_{\pm 0.12}$ & 90.41$_{\pm 0.09}$ & 62.31$_{\pm 0.20}$ & 64.75$_{\pm 0.13}$ & 95.72$_{\pm 0.10}$ & 98.05$_{\pm 0.05}$ & -0.43 & -0.24$^{\ddagger}$ \\
+			Focal Loss \citep{lin2018focal} & 88.35$_{\pm 0.14}$ & 89.81$_{\pm 0.12}$ & 63.15$_{\pm 0.16}$ & 64.18$_{\pm 0.15}$ & 96.11$_{\pm 0.12}$ & 97.90$_{\pm 0.07}$ & Ref   & -0.84 \\
 			\midrule
 			FairPO-DPO                                     & 88.02$_{\pm 0.15}$ & 89.97$_{\pm 0.11}$ & 63.45$_{\pm 0.17}$ & 63.65$_{\pm 0.16}$ & 97.89$_{\pm 0.13}$ & 98.04$_{\pm 0.06}$ & -0.33 & -0.68 \\
 			FairPO-SimPO                                   & 87.67$_{\pm 0.18}$ & 88.76$_{\pm 0.21}$ & 62.34$_{\pm 0.22}$ & 63.12$_{\pm 0.19}$ & 95.69$_{\pm 0.15}$ & 97.78$_{\pm 0.09}$ & -0.68 & -1.89 \\
@@ -445,8 +444,8 @@ what makes the CPO variant the most practical choice.
 			& $\privileged$ & $\nonprivileged$ & $\privileged$ & $\nonprivileged$ & $\privileged$ & $\nonprivileged$ & (vs.\ Focal) & (vs.\ BCE) \\
 			\midrule
 			BCE-SFT \citep{bce_loss}                       & 63.53$_{\pm 0.15}$ & \textbf{70.24}$_{\pm 0.11}$ & 48.12$_{\pm 0.21}$ & \textbf{55.83}$_{\pm 0.14}$ & 91.51$_{\pm 0.12}$ & \textbf{95.22}$_{\pm 0.08}$ & -2.28 & Ref \\
-			GDRO + BCE \citep{sagawa2019distributionally}  & 64.84$_{\pm 0.16}$ & 69.91$_{\pm 0.12}$ & 49.13$_{\pm 0.22}$ & 55.62$_{\pm 0.15}$ & 92.11$_{\pm 0.13}$ & 95.13$_{\pm 0.09}$ & -0.97 & -0.33 \\
-			Focal Loss \citep{lin2018focallossdenseobject} & 65.81$_{\pm 0.17}$ & 68.95$_{\pm 0.15}$ & 50.33$_{\pm 0.20}$ & 54.31$_{\pm 0.18}$ & 93.05$_{\pm 0.11}$ & 94.75$_{\pm 0.11}$ & Ref   & -1.29 \\
+			GDRO + BCE \citep{sagawa2020dro}  & 64.84$_{\pm 0.16}$ & 69.91$_{\pm 0.12}$ & 49.13$_{\pm 0.22}$ & 55.62$_{\pm 0.15}$ & 92.11$_{\pm 0.13}$ & 95.13$_{\pm 0.09}$ & -0.97 & -0.33 \\
+			Focal Loss \citep{lin2018focal} & 65.81$_{\pm 0.17}$ & 68.95$_{\pm 0.15}$ & 50.33$_{\pm 0.20}$ & 54.31$_{\pm 0.18}$ & 93.05$_{\pm 0.11}$ & 94.75$_{\pm 0.11}$ & Ref   & -1.29 \\
 			\midrule
 			FairPO-DPO                                     & 66.34$_{\pm 0.20}$ & 69.05$_{\pm 0.14}$ & 51.71$_{\pm 0.25}$ & 54.52$_{\pm 0.19}$ & 93.92$_{\pm 0.16}$ & 95.04$_{\pm 0.09}$ & +0.53 & -1.19 \\
 			FairPO-SimPO                                   & 64.11$_{\pm 0.22}$ & 68.03$_{\pm 0.24}$ & 48.82$_{\pm 0.28}$ & 53.81$_{\pm 0.22}$ & 91.94$_{\pm 0.18}$ & 94.52$_{\pm 0.13}$ & -1.70 & -2.21 \\
