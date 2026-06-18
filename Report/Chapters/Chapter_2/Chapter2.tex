@@ -10,7 +10,7 @@ RL fine-tuning. Section~\ref{sec:rw-fairpo} covers multi-label
 classification, preference optimization, and group-robust optimization, which are
 the parts that FairPO builds on.
 
-\section{Language-Specific Neurons and Internal Control of Multilingual Models}
+\section{Language-Specific Neurons in Multilingual Models}
 \label{sec:rw-neurons}
 
 \subsection{Identifying Language-Specific Neurons}
@@ -122,8 +122,10 @@ work shows that the cause of cross-lingual gaps can lie in the tokeniser:
 different numbers of tokens across languages, which puts low-resource languages at
 a disadvantage before the model runs. Chapter~\ref{ch:grpo-crosslingual} connects
 these threads. It fine-tunes a multilingual model on MGSM with GRPO, checks the
-English-centric processing claim during training, and finds that whether GRPO can
-teach a language tracks tokeniser coverage rather than language identity.
+English-centric processing claim during training, and finds that GRPO leaves the
+per-layer language pattern unchanged, so it does not cause cross-lingual collapse,
+and that the language it cannot move tracks tokeniser coverage rather than
+language identity.
 
 \section{MLC and Preference Optimization}
 \label{sec:rw-fairpo}

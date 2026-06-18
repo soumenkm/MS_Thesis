@@ -67,9 +67,9 @@ following.
 	neuron-targeted low-rank fine-tuning, on XNLI and XQuAD.
 	
 	\item We find that these interventions do not give consistent improvements on
-	cross-lingual downstream tasks for low-resource languages. The change in
-	accuracy is small, usually under one point, and is not in a consistent
-	direction.
+	cross-lingual downstream tasks for low-resource languages. Where there is any
+	gain it is small and not in a consistent direction, and several interventions
+	degrade performance, sometimes sharply, more so for Mistral Nemo and on XQuAD.
 	
 	\item We report two further observations that explain the negative result.
 	Setting a neuron's activation to zero does not remove its effect, which means
@@ -348,11 +348,12 @@ We run the identification on two groups of languages, which we call Set1 and Set
 Set1 is a mixed group covering several scripts and language families, used to study
 neurons across languages that the model handles with varying success. Set6 is a
 group of Indian languages, used to look more closely at the low-resource case that
-is the focus of this chapter. We compute the activation statistics and run both
-identification methods separately for each set, since the set of languages changes
-the normalization in LAPE (Equation~\ref{eq:neurons-lape-norm}) and therefore which
-neurons are selected. The exact languages in each set are listed in
-Section~\ref{sec:neurons-setup}.
+is the focus of this chapter. Set1 covers English, French, Spanish, Vietnamese, Indonesian, Japanese, and Chinese, a mixed group across several scripts and families. Set6 covers English, Bengali, Hindi, Tamil, Telugu, Marathi, Urdu, Kannada, Malayalam, and Punjabi, the group of Indian
+languages used to look more closely at the low-resource case. English is included
+in both sets as the source language. We compute the activation statistics and run
+both identification methods separately for each set, since the set of languages
+changes the normalization in LAPE (Equation~\ref{eq:neurons-lape-norm}) and
+therefore which neurons are selected.
 
 \section{Intervening on Language-Specific Neurons}
 \label{sec:neurons-intervene}
@@ -521,7 +522,7 @@ Section~\ref{subsec:neurons-lora}, together with LoRA on the attention projectio
 and the task head. We train with the AdamW optimizer and mixed-precision
 computation. The full list of hyperparameters, including LoRA rank, scaling factor,
 learning rate, number of epochs, and batch size for each task, is given in
-Appendix~\ref{app:neurons-hyperparams}.
+Table~\ref{tab:neurons-hyperparams}.
 
 \subsection{Evaluation Metrics}
 \label{subsec:neurons-metrics}
@@ -547,13 +548,16 @@ Section~\ref{subsec:neurons-langsets}.
 \subsection{Number of Language-Specific Neurons}
 \label{subsec:neurons-counts}
 
-Figure~\ref{fig:neurons-counts} shows the number of neurons identified per
-language by LAPE for both models. For both models, the Act Prob 90p method identifies a fixed number of language-specific neurons regardless of the language: 573 neurons per language for the first model and 717 for the second. The counts are a small fraction of the total number of neurons, which is expected given the selection rules in Equations~\ref{eq:neurons-lape-m} and~\ref{eq:neurons-act-m}. The two
-methods do not pick the same number of neurons for a given language, since they
-score and threshold differently, but both assign a comparable, small set to each
-language. This sets up the rest of the analysis: the neurons are few enough that,
-if they carried language-specific function in a clean way, intervening on them
-should be both possible and visible.
+Figure~\ref{fig:neurons-counts} shows the number of neurons identified per language
+by LAPE, for both models on Set1 and Set6. The counts vary by language and are a
+small fraction of the total number of neurons, as expected from the selection rule
+in Equation~\ref{eq:neurons-lape-m}. The Act Prob 90p method works differently: by
+construction it keeps a fixed number of top-scoring neurons per language
+(Equation~\ref{eq:neurons-act-m}), which is $573$ per language for Llama~3.1 and
+$717$ for Mistral Nemo, so its per-language counts are equal and we do not plot
+them. Either way the identified set is small. This sets up the rest of the analysis:
+the neurons are few enough that, if they carried language-specific function in a
+clean way, intervening on them should be both possible and visible.
 
 % FIGURE 3.4 -- include here.
 % Suggested filename: fig_neuron_counts.pdf
@@ -941,16 +945,16 @@ English. For each fine-tuned model we also apply the test-time interventions, so
 each row shows the no-intervention score next to the mean, $P90$, zero, and $P10$
 settings.
 
-Two things stand out. First, the no-intervention column is the best column in
-nearly every row, for both LAPE and Act~Prob~90p. Fine-tuning the neurons and then
-intervening on them does not beat simply fine-tuning and leaving the neurons alone.
-Second, the choice of which language's neurons are made trainable barely changes the
-result. Within a target language the three FTL settings give almost the same scores,
-for example Vietnamese stays near $80.1$ under LAPE whether we fine-tune the English
-neurons, the Vietnamese neurons, or both. If the language-specific neurons carried
-information that transfers to the target language, we would expect fine-tuning the
-target-language neurons to help more than fine-tuning the English ones, and we do
-not see that.
+Two things stand out. First, for Vietnamese and Hindi the no-intervention column is
+the best or close to the best in every row, for both LAPE and Act~Prob~90p.
+Fine-tuning the neurons and then intervening on them does not beat simply
+fine-tuning and leaving the neurons alone. Second, the choice of which language's
+neurons are made trainable barely changes the result. Within a target language the
+three FTL settings give almost the same scores, for example Vietnamese stays near
+$80.1$ under LAPE whether we fine-tune the English neurons, the Vietnamese neurons,
+or both. If the language-specific neurons carried information that transfers to the
+target language, we would expect fine-tuning the target-language neurons to help
+more than fine-tuning the English ones, and we do not see that.
 
 The one place any column edges above the baseline is Urdu, where the mean
 intervention reaches about $70.4$ to $70.6$ against a baseline near $70.0$. This is
