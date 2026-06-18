@@ -345,15 +345,20 @@ artifact of one method.
 \label{subsec:neurons-langsets}
 
 We run the identification on two groups of languages, which we call Set1 and Set6.
-Set1 is a mixed group covering several scripts and language families, used to study
-neurons across languages that the model handles with varying success. Set6 is a
-group of Indian languages, used to look more closely at the low-resource case that
-is the focus of this chapter. Set1 covers English, French, Spanish, Vietnamese, Indonesian, Japanese, and Chinese, a mixed group across several scripts and families. Set6 covers English, Bengali, Hindi, Tamil, Telugu, Marathi, Urdu, Kannada, Malayalam, and Punjabi, the group of Indian
+Set1 covers French, Spanish, Vietnamese, Indonesian, Japanese, and Chinese, a mixed
+group across several scripts and families. Set6 covers Bengali, Hindi, Tamil,
+Telugu, Marathi, Urdu, Kannada, Malayalam, and Punjabi, the group of Indian
 languages used to look more closely at the low-resource case. English is included
 in both sets as the source language. We compute the activation statistics and run
 both identification methods separately for each set, since the set of languages
 changes the normalization in LAPE (Equation~\ref{eq:neurons-lape-norm}) and
 therefore which neurons are selected.
+
+The downstream tasks are evaluated on the languages those benchmarks support:
+Vietnamese, Hindi, and Urdu for XNLI, and Vietnamese, Hindi, and Chinese for XQuAD.
+For each of these evaluation languages, the neurons we intervene on are the ones
+identified within the set that the language belongs to, so Vietnamese and Chinese
+neurons come from the Set1 run and Hindi and Urdu neurons from the Set6 run.
 
 \section{Intervening on Language-Specific Neurons}
 \label{sec:neurons-intervene}
@@ -566,8 +571,11 @@ clean way, intervening on them should be both possible and visible.
 \begin{figure}[ht]
 	\centering
 	 \includegraphics[width=0.8\linewidth]{Chapters/Chapter_3/figures/results/combined_lang_neuron_dist.png}
-	\caption{Number of language-specific neurons identified per language by LAPE  for Llama~3.1 and Mistral Nemo on Set1 and Set6. Both models
-		assign a small set of neurons to each language.}
+	\caption{Number of language-specific neurons identified per language by LAPE, for
+		Llama~3.1 and Mistral Nemo on Set1 and Set6. The per-language counts vary by
+		language and are a small fraction of the total. Act Prob 90p instead keeps a fixed
+		number per language ($573$ for Llama~3.1, $717$ for Mistral Nemo) and is not
+		plotted.}
 	\label{fig:neurons-counts}
 \end{figure}
 

@@ -86,7 +86,7 @@ following.
 \end{itemize}
 
 On MS-COCO and NUS-WIDE, FairPO improves accuracy on the rare privileged labels, by
-up to $3.44\%$ $\Delta\text{mAP}$ over the BCE-SFT baseline with its CPO variant,
+up to $+3.44$ $\Delta\text{mAP}$ over the BCE-SFT baseline with its CPO variant,
 while leaving the frequent labels almost unchanged, and it does better than the
 baselines we compare against.
 
@@ -117,7 +117,7 @@ How the labels are assigned to the two groups is left open and can be chosen for
 the problem, for example by label frequency for class imbalance, or by domain
 importance. In this chapter we use class imbalance, so the privileged group is the
 set of least frequent labels. The exact partition is given in
-Section~\ref{sec:fairpo-setup}.
+Section~\ref{subsec:fairpo-data}.
 
 Figure~\ref{fig:fairpo-overview} gives an overview of the framework: each sampled
 label is routed to a privileged or non-privileged path with its own objective, and

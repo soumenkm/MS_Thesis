@@ -311,7 +311,7 @@ positions and prompts, renormalized over the seven studied languages. Reading th
 layer shows which language the model predicts in at each depth; reading it across
 checkpoints shows whether GRPO changes that.
 
-\paragraph{(iii) Three-phase commitment.}
+\paragraph{(iii) Three-phase analysis.}
 We split the stack into early, middle, and late phases, and for each phase measure
 how often the model's top-1 logit-lens prediction is a token of a given language. We
 also report this at the last few layers on their own. This is a coarser version of
@@ -342,9 +342,9 @@ and Table~\ref{tab:grpo-acc} gives the first and last checkpoint values. The mai
 point is that GRPO moves accuracy very little. Six of the seven languages sit in a
 band between about $0.72$ and $0.94$ and wiggle by a couple of points across training
 without any clear upward trend; their first-to-last changes are between $0$ and
-$0.04$. Telugu sits well below the rest, at about $0.38$ to $0.40$, and stays there
-for the whole run. So on this task GRPO does not lift the languages much, and Telugu
-in particular does not move at all.
+$0.04$. Telugu sits well below the rest, at about $0.38$ to $0.40$, and stays there for the
+whole run. So on this task GRPO does not lift the languages much, and Telugu in
+particular stays far below the others throughout.
 
 % FIGURE 4.1 -- include here.
 % PLOT: plots/plot_accuracy_gpt/plot_accuracy_gpt.png
@@ -353,7 +353,7 @@ in particular does not move at all.
 	\centering
 	 \includegraphics[width=0.8\linewidth]{Chapters/Chapter_4/accuracy_gpt.png}
 	\caption{Per-language evaluation accuracy across GRPO training steps, scored by
-		the verifier. Six languages stay in a band between about $0.72$ and $0.94$ with
+		the regex-plus-judge verifier. Six languages stay in a band between about $0.72$ and $0.94$ with
 		little change over training; Telugu stays at about $0.38$ to $0.40$ throughout.}
 	\label{fig:grpo-accuracy}
 \end{figure}
@@ -385,12 +385,12 @@ in particular does not move at all.
 
 Figure~\ref{fig:grpo-logitlens} shows, by layer and by training step, how much of the
 model's logit-lens prediction mass falls on each language, renormalized over the
-seven studied languages. The pattern is the same across prompt languages. For a
-non-English prompt, the early and middle layers put most of their renormalized mass
-on English, with the prompt's own language near zero, and the target language appears
-only in the last two or three layers, where English is still comparable to it. So the
-model reads out as English through the body of the stack and surfaces the target
-language only at the very end.
+seven studied languages, for a Telugu prompt and a Thai prompt. The pattern is the
+same across prompt languages. For a non-English prompt, the early and middle layers
+put most of their renormalized mass on English, with the prompt's own language near
+zero, and the target language appears only in the last two or three layers, where
+English is still comparable to it. So the model reads out as English through the body
+of the stack and surfaces the target language only at the very end.
 
 For this chapter the important thing is how this changes with training, which is to
 say it does not. Across all $620$ GRPO steps the per-layer pattern is flat: the
@@ -418,23 +418,25 @@ middle of the stack, and it does not remove it. This holds for every language.
 	\label{fig:grpo-logitlens}
 \end{figure}
 
-\subsection{Three-Phase Commitment and the English Lead}
+\subsection{Three-Phase Analysis and the English Lead}
 \label{subsec:grpo-threephase}
 
 Figure~\ref{fig:grpo-threephase} gives the coarser categorical view, the fraction of
 layers in each phase whose top-1 logit-lens prediction is a token of a given language,
 together with the same at the last few layers. It confirms the picture above. English
 is the most common top-1 prediction in the early and middle phases, with its share
-highest in the middle phase, and the target language appears only in the late phase
-and even there does not clearly overtake English.
+highest in the middle phase. The target language appears mainly in the late phase, and
+the two prompts differ at the very end: for Thai the target rises clearly at the last
+layer and overtakes English, while for Telugu it stays low throughout.
 
 Figure~\ref{fig:grpo-gap} states the same thing as one number per layer: the gap
 between the English fraction and the target fraction of top-1 predictions. The gap is
-positive at every depth, meaning English leads the target language throughout. It is
-largest in the middle layers, around $0.55$ to $0.62$, smaller in the early layers,
-and smaller again in the late layers, around $0.20$ to $0.32$, but it stays positive
-to the end. As with the other measurements, the gap is flat across the $620$ steps,
-so GRPO does not change the English lead at any depth.
+positive through the early and middle layers for both prompts, meaning English leads
+there. It is largest in the middle layers, around $0.55$ to $0.62$, and smaller in the
+early and late layers. At the very end the two prompts differ: for Telugu the gap stays
+positive, so English keeps the lead, while for Thai the gap turns negative at the last
+layer, where Thai overtakes English. As with the other measurements, the gap is flat
+across the $620$ steps, so GRPO does not change it.
 
 % FIGURE 4.3 -- include here.
 % PLOT: from plots/plot2/. Use plot2_lineplot_prompt-te.png (low-resource case),
