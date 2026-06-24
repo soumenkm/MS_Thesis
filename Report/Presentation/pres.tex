@@ -151,11 +151,7 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 	%  INTRODUCTION
 	%========================================================================
 	
-	%========================================================================
-	%  INTRODUCTION
-	%========================================================================
-	
-	\partdivider{Introduction}{Motivation, Problem Statement, and Research Questions}
+	\partdivider{Introduction}{Motivation, Problem Setting, and Research Questions}
 	
 	% --- Intro Slide 1: Motivation & Problem ---
 	\begin{frame}{Introduction}
@@ -164,50 +160,37 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 			\begin{itemize}
 				\item Large language models use the same parameters across languages, but perform worse on low-resource languages \autocite{conneau2018xnli, shi2022mgsm}.
 				\item It is difficult to identify which part of a model is responsible for a behaviour, and difficult to change that behaviour by editing a specific part.
-				\item This thesis studies the difference between what a model can do and what its training makes it do, in two settings:
+				\item This thesis presents three studies, examining where a capability is located inside a model and how training shapes the model's behaviour:
 				\begin{itemize}\scriptsize
-					\item Cross-lingual learning in multilingual language models.
-					\item Optimization with competing objectives in multi-label classification.
+					\item Language-specific neurons and cross-lingual transfer in multilingual language models. \hfill (Part 1)
+					\item Cross-lingual behaviour during reinforcement-learning fine-tuning of a multilingual reasoner. \hfill (Part 2)
+					\item Training with competing objectives in multi-label classification. \hfill (Part 3)
 				\end{itemize}
 			\end{itemize}
 		\end{block}
-		\begin{block}{\scriptsize Common Observation}\scriptsize
+		
+		\begin{block}{\scriptsize Problem Setting}\scriptsize
 			\begin{itemize}
-				\item Editing a localized internal component is often less effective than changing the objective the model is trained on.
-				\item The cases where an intervention does not work are also informative about how the model is organized.
+				\item Each study asks where a behaviour can be changed: by editing a localized component, or through training.
+				\item Part 1 edits components, Part 2 observes a training procedure, and Part 3 designs an objective.
 			\end{itemize}
 		\end{block}
 	\end{frame}
 	
-	% --- Intro Slide 2: Sub-Problems ---
-	\begin{frame}{Introduction}
-		\framesubtitle{Problem Statement}
-		\begin{block}{\scriptsize Three Sub-Problems}\scriptsize
-			\begin{enumerate}
-				\item Can localized internal components be used to control cross-lingual behaviour?
-				We test whether editing language-specific neurons improves downstream performance, not only the language of generation. \hfill (Part 1)
-				\item How does reinforcement-learning fine-tuning change cross-lingual behaviour, and why does it help some languages but not others?
-				We track a multilingual model during Group Relative Policy Optimization (GRPO)\autocite{shao2024deepseekmath} and identify the factor that controls the per-language outcome. \hfill (Part 2)
-				\item How can a model be improved on a chosen subset of labels without reducing performance on the rest?
-				We design an objective that targets the chosen labels while keeping the others stable. \hfill (Part 3)
-			\end{enumerate}
-		\end{block}
-	\end{frame}
-	
-	% --- Intro Slide 3: Research Questions ---
-	\begin{frame}{Introduction}
-		\framesubtitle{Research Questions}
-		\begin{block}{\scriptsize Questions Addressed in This Thesis}\scriptsize
-			\begin{itemize}
-				\item Are language-specific neurons useful for cross-lingual transfer?
-				Earlier work shows they can control the language a model generates in \autocite{tang2024language, kojima2024multilingual}. It is not clear whether editing them improves performance on tasks such as NLI and QA for low-resource languages. \hfill (Part 1)
-				\item Does a multilingual model process its reasoning in English at the middle layers, and is that what holds back low-resource languages?
-				One hypothesis is that the model works in an English-leaning space at the middle layers \autocite{wendler2024llamas}. We ask whether this holds during reinforcement-learning fine-tuning, and whether it or some other factor explains why certain languages do not improve. \hfill (Part 2)
-				\item Can preference optimization, which was developed for text generation, manage competing objectives in classification?
-				We ask whether the ideas in DPO \autocite{rafailov2023direct}, CPO \autocite{xu2024contrastive}, and SimPO \autocite{meng2024simpo}, together with a group-robust balancing method \autocite{ramesh2024group}, give targeted improvements in multi-label classification. \hfill (Part 3)
-			\end{itemize}
-		\end{block}
-	\end{frame}
+% --- Intro Slide: Research Questions ---
+\begin{frame}{Introduction}
+	\framesubtitle{Research Questions}
+	\begin{block}{\scriptsize Questions Addressed in This Thesis}\scriptsize
+		\begin{enumerate}
+			\item Are language-specific neurons useful for cross-lingual transfer?
+			Earlier work shows they can control the language a model generates in \autocite{tang2024language}. We test whether editing them improves downstream performance on tasks such as NLI and QA for low-resource languages, not only the language of generation. \hfill (Part 1)
+			\item Does a multilingual model process its reasoning in English at the middle layers, and is that what holds back low-resource languages?
+			One hypothesis is that the model works in an English-leaning space at the middle layers \autocite{wendler2024llamas}. We track a model during reinforcement-learning fine-tuning to see whether this holds, and identify the factor that controls why some languages improve and others do not. \hfill (Part 2)
+			\item Can preference optimization, which was developed for text generation, manage competing objectives in classification?
+			We test whether the ideas in DPO \autocite{rafailov2023direct}, CPO \autocite{xu2024contrastive}, and SimPO \autocite{meng2024simpo}, with a group-robust balancing method \autocite{ramesh2024group}, improve a chosen subset of labels while keeping performance on the rest stable. \hfill (Part 3)
+		\end{enumerate}
+	\end{block}
+\end{frame}
 	
 	% --- Intro Slide 4: A Note on Naming ---
 	\begin{frame}{Introduction}
@@ -378,12 +361,19 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 	\begin{frame}{Part 1: Language-Specific Neurons}
 		\framesubtitle{Results: Perplexity Change}
 		\begin{columns}
-			\column{0.45\textwidth}
+			\column{0.55\textwidth}
 			\begin{block}{\scriptsize Perplexity Change (PPXC)}\scriptsize
-				Measures the effect of an intervention on a target language's perplexity, $PPXC(i,j) = PPX(j \mid \text{set activation to 0 at } i) - PPX(j)$. A larger value means the intervention has a larger effect on the model's handling of language $j$.
+				\begin{itemize}
+					\item Checks whether an intervention affects the model's basic handling of a language, before measuring task accuracy.
+					\item Defined as the perplexity on language $j$ after intervening on the neurons of language $i$, minus the perplexity with no intervention:
+					\begin{equation*}
+						\mathrm{PPXC}(i,j) = \mathrm{PPX}\!\left( j \mid \text{intervention on } i \right) - \mathrm{PPX}(j).
+					\end{equation*}
+					\item A value near zero means little effect; a large value means a strong effect. The diagonal ($i = j$) versus off-diagonal ($i \neq j$) shows whether neurons are language-specific.
+				\end{itemize}
 			\end{block}
-			\column{0.45\textwidth}
-			\begin{block}{\scriptsize Perplexity Results}\scriptsize
+			\column{0.35\textwidth}
+			\begin{block}{\scriptsize PPXC Heatmap (Llama 3.1, Zero Int)}\scriptsize
 				\begin{figure}[ht]
 					\centering
 					\includegraphics[width=0.9\textwidth]{ppx_fig.png}
@@ -398,7 +388,7 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 	\begin{frame}{Part 1: Language-Specific Neurons}
 		\framesubtitle{Results: Test-Time Interventions on XNLI}
 		\begin{columns}
-			\begin{column}{0.25\textwidth}
+			\begin{column}{0.35\textwidth}
 				\begin{block}{\scriptsize Observations}\scriptsize
 					\begin{itemize}
 						\item The aim was to improve cross-lingual performance by intervening on language-specific neurons at test time.
@@ -406,8 +396,8 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 					\end{itemize}
 				\end{block}
 			\end{column}
-			\begin{column}{0.65\textwidth}
-				\begin{block}{\scriptsize XNLI Accuracy (\%)}\scriptsize
+			\begin{column}{0.55\textwidth}
+				\begin{block}{\scriptsize XNLI Accuracy (\%)}\tiny
 					\centering
 					\setlength{\tabcolsep}{3pt}
 					\begin{tabular}{l l c c c c c c c c}
@@ -483,7 +473,7 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 	\begin{frame}{Part 1: Language-Specific Neurons}
 		\framesubtitle{Results: Targeted Fine-Tuning}
 		\begin{columns}
-			\begin{column}{0.4\textwidth}
+			\begin{column}{0.45\textwidth}
 				\begin{block}{\scriptsize Observations}\scriptsize
 					\begin{itemize}
 						\item This tests a longer-lasting intervention: fine-tuning only the language-specific neurons with LoRA.
@@ -492,8 +482,8 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 					\end{itemize}
 				\end{block}
 			\end{column}
-			\begin{column}{0.5\textwidth}
-				\begin{block}{\scriptsize Fine-Tuning Results (Llama 3.1)}\scriptsize
+			\begin{column}{0.45\textwidth}
+				\begin{block}{\scriptsize Fine-Tuning Results (Llama 3.1)}\tiny
 					\centering
 					\setlength{\tabcolsep}{4pt}
 					\begin{tabular}{l l c c c c c}
@@ -525,14 +515,17 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 		\framesubtitle{Findings and Takeaway}
 		\begin{block}{\scriptsize Summary of Findings}\scriptsize
 			\begin{itemize}
-				\item Direct interventions on language-specific neurons, both at test time and through targeted fine-tuning, do not improve cross-lingual task performance. Where there is a gain it is small and not in a consistent direction, and several interventions lower performance.
+				\item Direct interventions on language-specific neurons, both at test time and through targeted fine-tuning, do not improve cross-lingual task performance. 
 				\item Setting a neuron's activation to zero does not remove its effect, so zero is not a reliable way to turn a neuron off.
 				\item The neurons identified for different languages are not independent, so editing the neurons for one language affects the others.
 				\item These two observations are consistent with neurons that take part in more than one function \autocite{elhage2022superposition}, which is why surgical edits do not give a clean effect.
 			\end{itemize}
 		\end{block}
-		\begin{alertblock}{\scriptsize Publication}\scriptsize
-			Language-Specific Neurons Do Not Facilitate Cross-Lingual Transfer \autocite{mondal2025language}. Accepted at the Sixth Workshop on Insights from Negative Results in NLP, NAACL 2025.
+		\begin{alertblock}{\scriptsize Publication accepted at the Sixth Workshop on Insights from Negative Results in NLP, NAACL 2025.}\scriptsize
+			\begin{figure}[ht]
+				\centering
+				\includegraphics[width=0.9\textwidth]{pub1.png}
+			\end{figure}
 		\end{alertblock}
 	\end{frame}
 	
@@ -1104,7 +1097,7 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 	% ----------------------------------------------------------------------
 	% Thank You
 	% ----------------------------------------------------------------------
-	\partdivider{Thank You}{I am grateful to my advisor, \textcolor{blue}{Prof.~Preethi Jyothi}, for her guidance and support throughout this work.
+	\partdivider{Thank You}{I am grateful to my supervisor, \textcolor{blue}{Prof.~Preethi Jyothi}, for her guidance and support throughout this work.
 		I will be joining \textcolor{blue}{MBZUAI (Mohamed bin Zayed University of Artificial Intelligence)}, Abu Dhabi, UAE, in Fall 2026 for a PhD in Natural Language Processing.}
 	
 \end{document}
