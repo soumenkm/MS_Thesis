@@ -183,11 +183,16 @@ reasoners are used in practice, where some English context is usually present.
 \label{subsec:grpo-coverage}
 
 The Qwen2.5 tokeniser does not give the same number of dedicated tokens to every
-script. Counting the vocabulary tokens whose decoded bytes contain at least one
-character in a language's script gives the approximate coverage in
-Table~\ref{tab:grpo-coverage}. The gap is large: Thai has on the order of $2{,}500$
-tokens, Bengali about $46$, and Telugu about $14$. As the results will show, this
-gap lines up with the one language GRPO cannot lift.
+script. For each token in the vocabulary, we decode it to its string form and
+assign it a language by the majority Unicode script of its letter characters,
+excluding punctuation, digits, and whitespace from the count. Tokens that are
+model-internal, byte-fallback, or dominated by a script outside the seven
+languages are set aside. Japanese and Chinese share the Han script, so a token
+containing any hiragana or katakana is labelled Japanese and a pure-Han token is
+labelled Chinese. Counting the tokens assigned to each language gives the
+approximate coverage in Table~\ref{tab:grpo-coverage}. The gap is large: Thai has
+on the order of $2{,}500$ tokens, Bengali about $46$, and Telugu about $14$. As
+the results will show, this gap lines up with the one language GRPO cannot lift.
 
 % TABLE 4.1 (tokeniser coverage). Booktabs. Label: tab:grpo-coverage
 \begin{table}[t]

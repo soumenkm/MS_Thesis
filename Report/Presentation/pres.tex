@@ -366,9 +366,9 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 				\begin{itemize}
 					\item Checks whether an intervention affects the model's basic handling of a language, before measuring task accuracy.
 					\item Defined as the perplexity on language $j$ after intervening on the neurons of language $i$, minus the perplexity with no intervention:
-					\begin{equation*}
+					\begin{equation}
 						\mathrm{PPXC}(i,j) = \mathrm{PPX}\!\left( j \mid \text{intervention on } i \right) - \mathrm{PPX}(j).
-					\end{equation*}
+					\end{equation}
 					\item A value near zero means little effect; a large value means a strong effect. The diagonal ($i = j$) versus off-diagonal ($i \neq j$) shows whether neurons are language-specific.
 				\end{itemize}
 			\end{block}
@@ -541,18 +541,18 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 	% ----------------------------------------------------------------------
 	\begin{frame}{Part 2: Cross-Lingual Mechanisms during GRPO Training}
 		\framesubtitle{Motivation}
-		\begin{block}{\scriptsize From a Fixed Model to a Training Procedure}\scriptsize
+		\begin{block}{\scriptsize From Probing a Fixed Model to Watching Training}\scriptsize
 			\begin{itemize}
-				\item Part 1 probed a fixed model and found that editing a localized set of neurons does not change task behaviour.
-				\item Here we instead track how a training procedure changes a model's cross-lingual behaviour over time.
-				\item The procedure is Group Relative Policy Optimization (GRPO) \autocite{shao2024deepseekmath}, used to fine-tune models for reasoning; the behaviour is how the model handles the same math problem in different languages.
+				\item Part 1 probed a fixed model, and found that editing a localized set of neurons does not change task behaviour.
+				\item Here we instead watch how a training procedure changes a model's cross-lingual behaviour over time.
+				\item The procedure is Group Relative Policy Optimization (GRPO) \autocite{shao2024deepseekmath}, used to fine-tune models for reasoning. The behaviour we track is how the model handles the same math problem posed in different languages.
 			\end{itemize}
 		\end{block}
-		\begin{block}{\scriptsize Why Reinforcement Learning Raises a Concern}\scriptsize
+		\begin{block}{\scriptsize Why GRPO Could Affect Cross-Lingual Behaviour}\scriptsize
 			\begin{itemize}
-				\item GRPO rewards the model only for a correct final answer; the verifier does not read the language of the reasoning.
-				\item If the model could raise its reward by leaning more on an English-aligned middle of the stack, training might push it there and widen the gap for low-resource languages.
-				\item Whether GRPO actually changes this internal behaviour, and how the effect varies across languages, is the question.
+				\item The three-phase hypothesis \autocite{wendler2024llamas}, says the model maps non-English input into an English-aligned space in the middle layers and back to the target language only at the end.
+				\item GRPO rewards only a correct final answer; the verifier does not read the language of the reasoning. The model could raise its reward by relying more on that English-aligned middle.
+				\item This could push training to widen the gap for low-resource languages. Whether GRPO actually changes this internal behaviour, and how the effect varies across languages, is what we study.
 			\end{itemize}
 		\end{block}
 	\end{frame}
@@ -564,17 +564,18 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 		\framesubtitle{Background: The Three-Phase Hypothesis}
 		\begin{columns}
 			\column{0.55\textwidth}
-			\begin{block}{\scriptsize Early-Target, Mid-English, Late-Target}\scriptsize
+			\begin{block}{\scriptsize Input, Concept, and Output Space}\scriptsize
 				\begin{itemize}
-					\item One account of multilingual transformers \autocite{wendler2024llamas}: early layers map the input into the model's representation; middle layers work in a space closer to English than to the input language; the last layers map back to the input language.
-					\item A logit-lens readout of intermediate predictions should then show English through the body of the stack and the target language only near the end.
+					\item Wendler et al. \autocite{wendler2024llamas} describe the forward pass of a multilingual transformer in three phases: an input phase in the early layers, a concept phase in the middle layers, and an output phase in the last layers.
+					\item In the concept phase the model can already identify the correct next token, but assigns higher probability to its English form than to its form in the input language. This suggests the concept space is closer to English.
+					\item In the output phase the representation moves into a region specific to the input language, where the prediction is rendered in that language.
 				\end{itemize}
 			\end{block}
-			\column{0.45\textwidth}
-			\begin{block}{\scriptsize What This Means under GRPO}\scriptsize
+			\column{0.35\textwidth}
+			\begin{block}{\scriptsize Relevance to This Study}\scriptsize
 				\begin{itemize}
-					\item The hypothesis makes a static prediction we can test directly.
-					\item Tracking it across checkpoints tests whether GRPO changes it: training could lean more on the English-aligned middle, since the reward ignores the language of the reasoning.
+					\item The hypothesis predicts a fixed signature under the logit lens: English-leaning predictions through the middle layers and the target language only at the end.
+					\item It was established for Llama-2 on single-token translation. We test whether it holds for a different model on math reasoning, and whether GRPO fine-tuning strengthens or weakens it across checkpoints.
 				\end{itemize}
 			\end{block}
 		\end{columns}
@@ -583,28 +584,66 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 	% ----------------------------------------------------------------------
 	% Slide: Background -- GRPO objective + tools
 	% ----------------------------------------------------------------------
+	% ======================================================================
+	% Slide A: GRPO objective (full math)
+	% ======================================================================
 	\begin{frame}{Part 2: Cross-Lingual Mechanisms during GRPO Training}
-		\framesubtitle{Background: GRPO Objective and Analysis Tools}
+		\framesubtitle{Background: The GRPO Objective}
+		\begin{block}{\scriptsize Group-Relative Advantage}\scriptsize
+			\begin{itemize}
+				\item GRPO \autocite{shao2024deepseekmath} is an online policy-gradient method. Let $\pi_\theta$ be the policy, $\pi_{\theta_{\text{old}}}$ the policy at the start of the rollout, and $\pi_{\text{ref}}$ a frozen reference.
+				\item For prompt $i$, the policy generates $G$ responses $\{y_{i,j}\}_{j=1}^{G}$, each with a scalar reward $R_i^j$. Rather than a separate value model, GRPO standardizes the rewards within the group and uses that as the advantage:
+			\end{itemize}
+			\begin{equation}
+				\mu^i = \frac{1}{G}\sum_{j=1}^{G} R_i^j, \qquad
+				\sigma^i = \sqrt{\frac{1}{G}\sum_{j=1}^{G}\left(R_i^j - \mu^i\right)^2}, \qquad
+				A_i^j = \frac{R_i^j - \mu^i}{\sigma^i}.
+			\end{equation}
+			\begin{itemize}
+				\item The advantage $A_i^j$ is the same for every token of response $j$.
+			\end{itemize}
+		\end{block}
+		\begin{block}{\scriptsize Reward Signal}\scriptsize
+			\begin{itemize}
+				\item The reward $R_i^j$ is binary: an external judge accepts or rejects the final answer. It does not depend on the language of the reasoning.
+			\end{itemize}
+		\end{block}
+	\end{frame}
+	
+	% ======================================================================
+	% Slide B: GRPO loss (clipped objective + KL) and the analysis tools
+	% ======================================================================
+	\begin{frame}{Part 2: Cross-Lingual Mechanisms during GRPO Training}
+		\framesubtitle{Background: GRPO Loss and Analysis Tools}
 		\begin{columns}
-			\column{0.52\textwidth}
-			\begin{block}{\scriptsize Group Relative Policy Optimization}\scriptsize
+			\column{0.55\textwidth}
+			\begin{block}{\scriptsize Clipped Objective with KL Penalty}\scriptsize
 				\begin{itemize}
-					\item An online policy-gradient method \autocite{shao2024deepseekmath}: for a prompt, the policy generates a group of $G$ responses, each given a scalar reward $R_i^j$.
-					\item The advantage standardizes rewards within the group, with no separate value model:
+					\item Let $r_{i,j,t}(\theta) = \dfrac{\pi_\theta(y_{i,j,t}\mid \cdot)}{\pi_{\theta_{\text{old}}}(y_{i,j,t}\mid \cdot)}$ be the per-token policy ratio. The per-response objective is the clipped term with a KL penalty against the reference:
 				\end{itemize}
-				\begin{equation*}
-					A_i^j = \frac{R_i^j - \mu^i}{\sigma^i}, \quad
-					\mu^i = \tfrac{1}{G}\sum_{j} R_i^j .
-				\end{equation*}
+				\begin{equation}
+					\begin{aligned}
+						\mathcal{L}_{i,j}^{\text{resp}} = \frac{1}{|y_{i,j}|}\sum_{t}\Big[ &\min\big( r_{i,j,t}\, A_i^j,\ \mathrm{clip}(r_{i,j,t}, 1-\epsilon, 1+\epsilon)\, A_i^j \big) \\
+						&- \beta\, \mathbb{D}_{\mathrm{KL}}\!\left( \pi_\theta \,\|\, \pi_{\text{ref}} \right) \Big].
+					\end{aligned}
+				\end{equation}
+				\begin{equation}
+					\mathbb{D}_{\mathrm{KL}}\!\left( \pi_\theta \,\|\, \pi_{\text{ref}} \right)
+					= \frac{\pi_{\text{ref}}(y_{i,j,t}\mid \cdot)}{\pi_\theta(y_{i,j,t}\mid \cdot)}
+					- \log \frac{\pi_{\text{ref}}(y_{i,j,t}\mid \cdot)}{\pi_\theta(y_{i,j,t}\mid \cdot)} - 1 .
+				\end{equation}
 				\begin{itemize}
-					\item Loss uses a clipped policy ratio with a KL penalty against a frozen reference ($\epsilon = 0.2$, $\beta = 0.04$).
+					\item The batch loss averages over the group and the batch:
 				\end{itemize}
+				\begin{equation}
+					\mathcal{L}_{\text{GRPO}}(\theta) = -\frac{1}{B}\sum_{i=1}^{B}\frac{1}{G}\sum_{j=1}^{G}\mathcal{L}_{i,j}^{\text{resp}}.
+				\end{equation}
 			\end{block}
-			\column{0.48\textwidth}
-			\begin{block}{\scriptsize Two Tools for Reading the Model}\scriptsize
+			\column{0.35\textwidth}
+			\begin{block}{\scriptsize Tools for Reading the Model}\scriptsize
 				\begin{itemize}
-					\item Logit lens \autocite{nostalgebraist2020logitlens}: apply the final normalization and output head to an intermediate layer, giving a per-layer distribution over the vocabulary. We use it to ask which language the predicted token belongs to at each layer.
-					\item Centred Kernel Alignment \autocite{kornblith2019similarity}: measures similarity between two sets of representations, invariant to rotation and uniform scaling. We use it to compare a language with English, and a checkpoint with the base model.
+					\item Logit lens \autocite{nostalgebraist2020logitlens}: apply the model's final normalization and output head to an intermediate layer's residual stream, giving a per-layer distribution over the vocabulary. We use it to ask, at each layer, which language the predicted token belongs to.
+					\item Centred Kernel Alignment (CKA) \autocite{kornblith2019similarity}: measures similarity between two sets of representations, unchanged under rotation and uniform scaling. We use it to compare a language with English at each layer, and a checkpoint with the base model.
 				\end{itemize}
 			\end{block}
 		\end{columns}
@@ -616,7 +655,7 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 	\begin{frame}{Part 2: Cross-Lingual Mechanisms during GRPO Training}
 		\framesubtitle{Experimental Setup}
 		\begin{columns}
-			\column{0.5\textwidth}
+			\column{0.55\textwidth}
 			\begin{block}{\scriptsize Data, Model, and Reward}\scriptsize
 				\begin{itemize}
 					\item MGSM \autocite{shi2022mgsm}, seven languages: en, bn, te, th, ru, ja, zh. 200 train and 50 eval per language (1{,}400 / 350 total).
@@ -625,8 +664,8 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 					\item Reward is binary, from a verifier combining a regex match with a GPT-4o-mini judge.
 				\end{itemize}
 			\end{block}
-			\column{0.5\textwidth}
-			\begin{block}{\scriptsize Training Settings}\scriptsize
+			\column{0.35\textwidth}
+			\begin{block}{\scriptsize Training Settings}\tiny
 				\centering
 				\renewcommand{\arraystretch}{1.15}
 				\begin{tabular}{ll}
@@ -656,8 +695,8 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 	\begin{frame}{Part 2: Cross-Lingual Mechanisms during GRPO Training}
 		\framesubtitle{Tokeniser Coverage}
 		\begin{columns}
-			\column{0.55\textwidth}
-			\begin{block}{\scriptsize Script Tokens in the Qwen2.5 Vocabulary}\scriptsize
+			\column{0.35\textwidth}
+			\begin{block}{\scriptsize Script Tokens in the Qwen2.5 Vocabulary}\tiny
 				\centering
 				\renewcommand{\arraystretch}{1.2}
 				\begin{tabular}{llc}
@@ -674,12 +713,13 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 					\bottomrule
 				\end{tabular}
 			\end{block}
-			\column{0.45\textwidth}
-			\begin{block}{\scriptsize What to Note}\scriptsize
+			\column{0.55\textwidth}
+			\begin{block}{\scriptsize Assigning Each Token to a Language}\scriptsize
 				\begin{itemize}
-					\item The number of dedicated tokens differs by orders of magnitude across scripts.
-					\item Thai has about 2{,}500 tokens, Bengali about 46, Telugu about 14.
-					\item This gap lines up with the one language GRPO does not lift, as the results show.
+					\item Each vocabulary token is decoded to its string form, then labelled by majority Unicode script over its letter-class characters.
+					\item Punctuation, digits, and whitespace are excluded from the tally and bucketed separately; model-internal and byte-fallback tokens are also set aside.
+					\item Japanese and Chinese share the Han script: a token with any hiragana or katakana is labelled Japanese, and a pure-Han token is labelled Chinese, following Wendler et al.\autocite{wendler2024llamas}.
+					\item Counting the resulting per-language tokens gives the coverage in the table.
 				\end{itemize}
 			\end{block}
 		\end{columns}
@@ -688,16 +728,59 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 	% ----------------------------------------------------------------------
 	% Slide: The five measurements
 	% ----------------------------------------------------------------------
+	% ======================================================================
+	% Slide A: measurements (i)-(iii)
+	% ======================================================================
 	\begin{frame}{Part 2: Cross-Lingual Mechanisms during GRPO Training}
-		\framesubtitle{The Five Measurements}
-		\begin{block}{\scriptsize What We Compute at Each Checkpoint}\scriptsize
-			\begin{enumerate}
-				\item End-task accuracy: fraction of evaluation problems solved per language, judged by the verifier.
-				\item Per-layer language distribution: from the logit lens, how much prediction mass falls on each language at each layer, renormalized over the seven languages.
-				\item Three-phase analysis: how often the top-1 logit-lens prediction is a given language in the early, middle, and late phases.
-				\item English-minus-target gap: per layer, the English fraction minus the target fraction of top-1 predictions.
-				\item Representation geometry: CKA cross-lingual similarity to English, and within-language drift from step 0.
-			\end{enumerate}
+		\framesubtitle{The Five Measurements (1 of 3)}
+		\begin{block}{\scriptsize Accuracy (Observational Outcome)}\scriptsize
+			For checkpoint $j$ and prompt language $P$, the fraction of prompts (a prompt is denoted as $p$) whose stored CoT the verifier accepts (regex match with a GPT-4o-mini fallback judge):
+			\begin{equation}
+				\mathrm{Acc}_j(P) = \frac{1}{N_P} \sum_{p \, : \, \mathrm{lang}(p)=P} \mathbb{I}\!\left[ V(\mathrm{cot}_{p,j}) = \text{YES} \right] \in [0,1].
+			\end{equation}
+		\end{block}
+		\begin{block}{\scriptsize CoT Language Probability (Plot 1)}\scriptsize
+			Let $\tilde{P}_T(p,j,i,k)$ be the top-50 logit-lens mass on language $T$ for a prompt $p$, at checkpoint $j$, layer $i$, position $k$, renormalized over the seven languages. Averaged over positions and prompts:
+			\begin{equation}
+				Q_{j,i}(P,T) = \frac{1}{N_P} \sum_{p \, : \, \mathrm{lang}(p)=P} \frac{1}{C_p} \sum_{k=1}^{C_p} \tilde{P}_T(p,j,i,k) \in [0,1].
+			\end{equation}
+		\end{block}
+	\end{frame}
+	
+	\begin{frame}{Part 2: Cross-Lingual Mechanisms during GRPO Training}
+		\framesubtitle{The Five Measurements (2 of 3)}
+		\begin{block}{\scriptsize Fraction of Layers in Phase (Plot 2)}\scriptsize
+			Layers $0 \le i \le L{-}1$ ($L=28$) split into phases $\Phi \in \{\text{early},\text{mid},\text{late}\}$; $\mathrm{top1}(\cdot)$ is the language of the argmax token:
+			\begin{equation}
+				F_{j,\Phi}(P,T) = \frac{1}{N_P} \sum_{p \, : \, \mathrm{lang}(p)=P} \frac{1}{C_p} \sum_{k=1}^{C_p} \frac{1}{|\Phi|} \sum_{i \in \Phi} \mathbb{I}\!\left[ \mathrm{top1}(p,j,i,k) = T \right].
+			\end{equation}
+			Non-language argmax tokens contribute zero, so $\sum_T F_{j,\Phi}(P,T)$ need not equal one.
+		\end{block}
+		\begin{block}{\scriptsize English-Minus-Target Gap (Plot 2b/3)}\scriptsize
+			Built on the same top-1 fraction as Plot 2: for phase $\Phi$, the share of top-1 predictions that are English minus the share that are the target language $T$:
+			\begin{equation}
+				\Delta_{j,\Phi}(P,T) = F_{j,\Phi}(P,\text{en}) - F_{j,\Phi}(P,T).
+			\end{equation}
+			A positive $\Delta$ means English leads the target language in that phase. 
+		\end{block}
+	\end{frame}
+	
+	% ======================================================================
+	% Slide B: measurements (iv)-(v)
+	% ======================================================================
+	\begin{frame}{Part 2: Cross-Lingual Mechanisms during GRPO Training}
+		\framesubtitle{The Five Measurements (3 of 3)}
+		
+		\begin{block}{\scriptsize CKA Similarity (Plot 4)}\scriptsize
+			Linear CKA in Gram form, on stacks of mean-CoT activations $X^{(L)}_{j,i}$ (rows centred, $K_X = X_c X_c^\top$):
+			\begin{equation}
+				\mathrm{CKA}(X,Y) = \frac{\langle K_X, K_Y \rangle_F}{\lVert K_X \rVert_F\, \lVert K_Y \rVert_F}.
+			\end{equation}
+			Cross-lingual similarity to English, and drift from the base model (step $0$):
+			\begin{equation}
+				\mathrm{CKA}_{j,i}(T) = \mathrm{CKA}\!\left( X^{(\text{en})}_{j,i}, X^{(T)}_{j,i} \right), \qquad
+				D_{j,i}(P) = \mathrm{CKA}\!\left( X^{(P)}_{0,i}, X^{(P)}_{j,i} \right).
+			\end{equation}
 		\end{block}
 	\end{frame}
 	
@@ -707,13 +790,13 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 	\begin{frame}{Part 2: Cross-Lingual Mechanisms during GRPO Training}
 		\framesubtitle{Result: Accuracy over Training}
 		\begin{columns}
-			\column{0.58\textwidth}
+			\column{0.6\textwidth}
 			\begin{block}{\scriptsize Accuracy across 620 Steps}\scriptsize
 				\centering
 				\includegraphics[width=\linewidth]{accuracy_gpt.png}
 			\end{block}
-			\column{0.42\textwidth}
-			\begin{block}{\scriptsize First and Last Checkpoint}\scriptsize
+			\column{0.3\textwidth}
+			\begin{block}{\scriptsize First and Last Checkpoint}\tiny
 				\centering
 				\renewcommand{\arraystretch}{1.15}
 				\begin{tabular}{lccc}
@@ -729,11 +812,6 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 					te & 0.38 & 0.40 & $+0.02$ \\
 					\bottomrule
 				\end{tabular}
-				\vspace{0.4em}
-				\begin{itemize}
-					\item Six languages stay between about 0.72 and 0.94; Telugu stays at about 0.38 to 0.40.
-					\item GRPO moves accuracy by at most a few points.
-				\end{itemize}
 			\end{block}
 		\end{columns}
 	\end{frame}
@@ -742,18 +820,17 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 	% Slide: Result 2 -- per-layer language
 	% ----------------------------------------------------------------------
 	\begin{frame}{Part 2: Cross-Lingual Mechanisms during GRPO Training}
-		\framesubtitle{Result: Predicted Language at Each Layer}
+		\framesubtitle{Result: Per-Layer Language Distribution (Plot 1)}
 		\begin{columns}
-			\column{0.6\textwidth}
-			\begin{block}{\scriptsize Logit-Lens Language by Layer and Step}\scriptsize
+			\column{0.65\textwidth}
+			\begin{block}{\scriptsize Top-50 Logit-Lens Mass per Language, by Layer and Step}\scriptsize
 				\centering
-				\includegraphics[width=\linewidth]{combined_plot1.png}
+				\includegraphics[width=\linewidth]{combined_plot1_ppt.png}
 			\end{block}
-			\column{0.4\textwidth}
+			\column{0.25\textwidth}
 			\begin{block}{\scriptsize Reading}\scriptsize
 				\begin{itemize}
-					\item For a non-English prompt, early and middle layers put most mass on English; the target language appears only in the last two or three layers.
-					\item The pattern is the same across prompt languages.
+					\item For a non-English prompt, early and middle layers put most probability mass on English; the target language carries most mass only in the last two or three layers. The pattern is the same across prompt languages.
 					\item It is flat across all 620 steps: GRPO neither builds up nor removes the English-leaning middle.
 				\end{itemize}
 			\end{block}
@@ -763,62 +840,96 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 	% ----------------------------------------------------------------------
 	% Slide: Result 3 -- three-phase and gap
 	% ----------------------------------------------------------------------
-	\begin{frame}{Part 2: Cross-Lingual Mechanisms during GRPO Training}
-		\framesubtitle{Result 3: Three-Phase Analysis and the English Lead}
-		\begin{block}{\scriptsize Top-1 Language per Phase and the English-Minus-Target Gap}\scriptsize
-			\centering
-			\includegraphics[width=0.48\linewidth]{combined_plot2.png}\hfill
-			\includegraphics[width=0.48\linewidth]{combined_plot2_gap.png}
-		\end{block}
-		\begin{block}{\scriptsize Reading}\scriptsize
-			\begin{itemize}
-				\item English leads the early and middle phases, highest in the middle; the target language appears mainly in the late phase.
-				\item At the last layer, Thai overtakes English while Telugu stays low. The English-minus-target gap is positive through the body of the stack and flat across the 620 steps.
-			\end{itemize}
-		\end{block}
-	\end{frame}
-	
 	% ----------------------------------------------------------------------
-	% Slide: Result 4 -- CKA
+	% Slide: Plot 2 -- fraction of layers in phase
 	% ----------------------------------------------------------------------
 	\begin{frame}{Part 2: Cross-Lingual Mechanisms during GRPO Training}
-		\framesubtitle{Result: Representation Geometry (CKA)}
+		\framesubtitle{Result: Fraction of Layers in Each Phase (Plot 2)}
 		\begin{columns}
-			\column{0.58\textwidth}
-			\begin{block}{\scriptsize Cross-Lingual Similarity and Within-Language Drift}\scriptsize
+			\column{0.65\textwidth}
+			\begin{block}{\scriptsize Top-1 Language Share per Phase, by Step}\scriptsize
 				\centering
-				\includegraphics[width=\linewidth]{combined_plot4.png}
+				\includegraphics[width=\linewidth]{combined_plot2.png}
 			\end{block}
-			\column{0.42\textwidth}
+			\column{0.25\textwidth}
 			\begin{block}{\scriptsize Reading}\scriptsize
 				\begin{itemize}
-					\item Similarity to English is flat over training and tracks coverage: Telugu and Bengali lowest (about 0.10 and 0.15), Russian about 0.32, Thai/Japanese/Chinese about 0.40.
-					\item Within-language drift: every language stays above about 0.90, except Telugu, which drops to about 0.63 before settling near 0.78.
-					\item The one language that does not improve is the one whose representations move the most.
+					\item For a non-English prompt, English holds the largest top-1 share in the early and middle phases, highest in the middle.
+					\item The target language holds the largest share mainly in the late phase.
+					\item The phase shares are flat across the 620 steps.
 				\end{itemize}
 			\end{block}
 		\end{columns}
 	\end{frame}
 	
 	% ----------------------------------------------------------------------
+	% Slide: Plot 2b -- English-minus-target gap
+	% ----------------------------------------------------------------------
+	\begin{frame}{Part 2: Cross-Lingual Mechanisms during GRPO Training}
+		\framesubtitle{Result: English-Minus-Target Gap (Plot 2b/3)}
+		\begin{columns}
+			\column{0.65\textwidth}
+			\begin{block}{\scriptsize Per-Layer Gap between English and Target Top-1 Fractions}\scriptsize
+				\centering
+				\includegraphics[width=\linewidth]{combined_plot2_gap.png}
+			\end{block}
+			\column{0.25\textwidth}
+			\begin{block}{\scriptsize Reading}\scriptsize
+				\begin{itemize}
+					\item The gap is positive through the early and middle layers, so English leads the target language there.
+					\item At the last layer the prompts differ: for Thai the gap turns negative as the target overtakes English, while for Telugu it stays positive.
+					\item The gap is flat across the 620 steps.
+				\end{itemize}
+			\end{block}
+		\end{columns}
+	\end{frame}
+	
+	% ----------------------------------------------------------------------
+	% Slide: Result 4 -- CKA
+	% ----------------------------------------------------------------------
+\begin{frame}{Part 2: Cross-Lingual Mechanisms during GRPO Training}
+	\framesubtitle{Result: Similarity to English and Drift from Step 0 (Plot 4)}
+	\begin{columns}
+		\column{0.65\textwidth}
+		\begin{block}{\scriptsize Layer-Averaged CKA across Training}\scriptsize
+			\centering
+			\includegraphics[width=\linewidth]{combined_plot4_ppt.png}
+		\end{block}
+		\column{0.25\textwidth}
+		\begin{block}{\scriptsize Reading}\scriptsize
+			\begin{itemize}
+				\item Similarity to English (left) is flat over training and tracks coverage: Telugu and Bengali lowest, Russian middle, Thai/Japanese/Chinese highest.
+				\item Drift from step 0 (right): every language stays above about 0.90, except Telugu, which drops to about 0.63.
+				\item The language that does not improve is the one whose representations move the most.
+			\end{itemize}
+		\end{block}
+	\end{columns}
+\end{frame}
+	
+	% ----------------------------------------------------------------------
 	% Slide: Discussion
 	% ----------------------------------------------------------------------
 	\begin{frame}{Part 2: Cross-Lingual Mechanisms during GRPO Training}
-		\framesubtitle{Discussion}
-		\begin{block}{\scriptsize GRPO Does Not Cause Cross-Lingual Collapse}\scriptsize
+		\framesubtitle{Discussion: Why the Accuracy Curves Are Flat}
+		\begin{block}{\scriptsize Weak Adapter Update}\scriptsize
 			\begin{itemize}
-				\item The model reads out as English through the early and middle layers and surfaces the target language only at the end, matching the static three-phase picture.
-				\item This is already present at step 0 and does not change over 620 steps. The per-layer distribution, the three-phase commitment, and the English-minus-target gap are all flat in training.
+				\item Across checkpoints, the trained adapter shifts the output logits by only about $0.03$.
+				\item Under greedy decoding the answer is an argmax, so a shift this small rarely changes the selected token. The curves are therefore not expected to move much across steps.
 			\end{itemize}
 		\end{block}
-		\begin{block}{\scriptsize Tokeniser Coverage and the Telugu Case}\scriptsize
+		\begin{block}{\scriptsize Most Steps Carry No Gradient}\scriptsize
 			\begin{itemize}
-				\item Telugu sits far below the rest, does not improve, and is also the language whose representations move the most.
-				\item With very few dedicated tokens, its text is split into long, coarse byte sequences, so the answer-level reward does not turn into a useful per-token gradient.
-				\item The limiting factor is the granularity of the reward signal, set by coverage, not language identity or a change in internal routing.
+				\item In GRPO a group with zero reward variance gives zero advantage, hence zero gradient. This happens when all $G$ rollouts for a prompt are correct, or all are wrong.
+				\item By proportion of steps: about $45\%$ have every prompt's group at zero variance, about $38\%$ have half the batch at zero variance, and only about $17\%$ have full variance across the batch. So only about $17\%$ of steps were fully gradient-carrying, over a single epoch of roughly $620$ steps.
 			\end{itemize}
 		\end{block}
-	\end{frame}
+		\begin{block}{\scriptsize Which Languages Saturate}\scriptsize
+			\begin{itemize}
+				\item Zero-variance groups are expected where the base model is already saturated: English and Russian near $0.9$ are almost always all-correct, Telugu near $0.4$ is often all-wrong.
+				\item Telugu's all-wrong groups are consistent with its very low tokeniser coverage. 
+			\end{itemize}
+			\end{block}
+			\end{frame}
 	
 	
 	
@@ -927,7 +1038,7 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 	\begin{frame}{Part 3: FairPO}
 		\framesubtitle{Group-Robust Balancing and Algorithm}
 		\begin{columns}
-			\column{0.52\textwidth}
+			\column{0.50\textwidth}
 			\begin{block}{\scriptsize Balancing the Two Group Losses}\scriptsize
 				\begin{itemize}
 					\item The two losses pull against each other, and a fixed weighted sum does not adapt during training.
@@ -940,7 +1051,7 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 					\item The weights $\alpha = (\alpha_{\privileged}, \alpha_{\nonprivileged})$ live on the simplex $\Delta$. The inner step puts more weight on whichever group currently has the higher loss; the outer step updates the model under that weighting.
 				\end{itemize}
 			\end{block}
-			\column{0.48\textwidth}
+			\column{0.40\textwidth}
 			\begin{block}{\scriptsize Training Procedure}\scriptsize
 				\begin{itemize}
 					\item Solved by alternating mirror ascent on $\alpha$ and mirror descent on $\params$.
@@ -960,7 +1071,7 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 	\begin{frame}{Part 3: FairPO}
 		\framesubtitle{SimPO and CPO Variants}
 		\begin{block}{\scriptsize SimPO-Based Privileged Loss}\scriptsize
-			SimPO \autocite{meng2024simpo} is reference-free and adds a target margin $\gamma$. Applied here, it compares the model's confidence on the true positive label $l$ against the confusing negative $k$:
+			SimPO \autocite{meng2024simpo} is reference-free and adds a target margin $\gamma$.
 			\begin{equation}
 				\loss_{\privileged}^{\text{SimPO}} = \E_{(x_i, l, k)\,:\, l \in \privileged,\, y_{il}=+1,\, k \in \confusing} \left[ -\log \sigma \left( \beta \left( \log \frac{m(x_i;\params_l)}{m(x_i;\params_k)} \right) - \gamma \right) \right].
 			\end{equation}
@@ -974,7 +1085,6 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 			\begin{equation}
 				\loss_{\privileged}^{\text{CPO}} = L_{\mathcal{P}}^{\text{CPO-prefer}} + \lambda\, L_{\mathcal{P}}^{\text{CPO-NLL}}.
 			\end{equation}
-			Each variant replaces only the preference term inside the privileged loss; the balancing and non-privileged handling stay the same.
 		\end{block}
 	\end{frame}
 	
@@ -982,8 +1092,8 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 	% Slide 29: Results on MS-COCO and NUS-WIDE
 	% ----------------------------------------------------------------------
 	\begin{frame}{Part 3: FairPO}
-		\framesubtitle{Results: MS-COCO and NUS-WIDE}
-		\begin{block}{\scriptsize MS-COCO ($\privileged$ = 20\% least frequent labels, $\nonprivileged$ = remaining 80\%)}\scriptsize
+		\framesubtitle{Results: MS-COCO}
+		\begin{block}{\scriptsize MS-COCO ($\privileged$ = 20\% least frequent labels, $\nonprivileged$ = remaining 80\%)}\tiny
 			\centering
 			\tiny
 			\adjustbox{max width=\textwidth}{%
@@ -1004,27 +1114,31 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 				\end{tabular}
 			}
 		\end{block}
-		\begin{block}{\scriptsize NUS-WIDE ($\privileged$ = 20\% least frequent labels, $\nonprivileged$ = remaining 80\%)}\scriptsize
-			\centering
-			\tiny
-			\adjustbox{max width=\textwidth}{%
-				\begin{tabular}{lcccccccccc}
-					\toprule
-					\multicolumn{1}{c}{Method} & \multicolumn{2}{c}{mAP} & \multicolumn{2}{c}{Sample F1} & \multicolumn{2}{c}{Accuracy} & \multicolumn{2}{c}{EMR} & \multicolumn{1}{c}{$\Delta \text{mAP}(\mathcal{P})$} \\
-					\cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7} \cmidrule(lr){8-9}
-					& $\mathcal{P}$ & $\nonprivileged$ & $\mathcal{P}$ & $\nonprivileged$ & $\mathcal{P}$ & $\nonprivileged$ & $\mathcal{P}$ & $\nonprivileged$ & \\
-					\midrule
-					BCE SFT      & 63.53 & 70.24 & 48.12 & 55.83 & 91.51 & 95.22 & 19.32 & 11.56 & Ref \\
-					BCE SFT + RW & 65.12 & 69.14 & 49.51 & 54.73 & 92.33 & 94.81 & 21.23 & 10.32 & +1.59 \\
-					GDRO + BCE   & 64.84 & 69.91 & 49.13 & 55.62 & 92.11 & 95.13 & 21.02 & 11.34 & +1.31 \\
-					\midrule
-					FairPO-DPO   & 66.34 & 69.05 & 51.71 & 54.52 & 93.92 & 95.04 & 27.91 & 11.21 & +2.81 \\
-					FairPO-SimPO & 64.11 & 68.03 & 48.82 & 53.81 & 91.94 & 94.52 & 20.18 & 10.19 & +0.58 \\
-					FairPO-CPO   & 67.12 & 69.83 & 52.21 & 55.24 & 94.31 & 95.12 & 31.87 & 11.25 & +3.59 \\
-					\bottomrule
-				\end{tabular}
-			}
-		\end{block}
+	\end{frame}
+	
+	\begin{frame}{Part 3: FairPO}
+	\framesubtitle{Results: NUS-WIDE}
+	\begin{block}{\scriptsize NUS-WIDE ($\privileged$ = 20\% least frequent labels, $\nonprivileged$ = remaining 80\%)}\tiny
+		\centering
+		\tiny
+		\adjustbox{max width=\textwidth}{%
+			\begin{tabular}{lcccccccccc}
+				\toprule
+				\multicolumn{1}{c}{Method} & \multicolumn{2}{c}{mAP} & \multicolumn{2}{c}{Sample F1} & \multicolumn{2}{c}{Accuracy} & \multicolumn{2}{c}{EMR} & \multicolumn{1}{c}{$\Delta \text{mAP}(\mathcal{P})$} \\
+				\cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7} \cmidrule(lr){8-9}
+				& $\mathcal{P}$ & $\nonprivileged$ & $\mathcal{P}$ & $\nonprivileged$ & $\mathcal{P}$ & $\nonprivileged$ & $\mathcal{P}$ & $\nonprivileged$ & \\
+				\midrule
+				BCE SFT      & 63.53 & 70.24 & 48.12 & 55.83 & 91.51 & 95.22 & 19.32 & 11.56 & Ref \\
+				BCE SFT + RW & 65.12 & 69.14 & 49.51 & 54.73 & 92.33 & 94.81 & 21.23 & 10.32 & +1.59 \\
+				GDRO + BCE   & 64.84 & 69.91 & 49.13 & 55.62 & 92.11 & 95.13 & 21.02 & 11.34 & +1.31 \\
+				\midrule
+				FairPO-DPO   & 66.34 & 69.05 & 51.71 & 54.52 & 93.92 & 95.04 & 27.91 & 11.21 & +2.81 \\
+				FairPO-SimPO & 64.11 & 68.03 & 48.82 & 53.81 & 91.94 & 94.52 & 20.18 & 10.19 & +0.58 \\
+				FairPO-CPO   & 67.12 & 69.83 & 52.21 & 55.24 & 94.31 & 95.12 & 31.87 & 11.25 & +3.59 \\
+				\bottomrule
+			\end{tabular}
+		}
+	\end{block}
 	\end{frame}
 	
 	% ----------------------------------------------------------------------
@@ -1040,8 +1154,10 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 				\item Fixing the group weights at $0.5/0.5$ instead of the adaptive balancing lowers the privileged gain (to $+2.16$ on MS-COCO), so the balancing step contributes to the result.
 			\end{itemize}
 		\end{block}
-		\begin{alertblock}{\scriptsize Publication}\scriptsize
-			FairPO: Robust Preference Optimization for Fair Multi-Label Learning \autocite{mondal2025fairpo}. Accepted at the OPT workshop, NeurIPS 2025.
+		\begin{alertblock}{\scriptsize Publication accepted at the OPT workshop, NeurIPS 2025.}\scriptsize
+			\begin{figure}
+				\includegraphics[width=0.9\textwidth]{pub2.png}
+			\end{figure}
 		\end{alertblock}
 	\end{frame}
 	
@@ -1049,7 +1165,7 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 	%  CONCLUSION
 	%========================================================================
 	
-	\partdivider{Conclusion}{Summary, limitations, and future work}
+	\partdivider{Conclusion}{Summary, Limitations, and Future Work}
 	
 	% ----------------------------------------------------------------------
 	% Slide 31: Main Findings
@@ -1058,16 +1174,15 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 		\framesubtitle{Main Findings}
 		\begin{block}{\scriptsize One Result per Study}\scriptsize
 			\begin{itemize}
-				\item Part 1: editing language-specific neurons in Llama 3.1 and Mistral Nemo, at test time or through targeted fine-tuning, did not improve cross-lingual transfer on XNLI and XQuAD, and several edits lowered performance.
-				\item Part 2: GRPO moved accuracy very little across seven MGSM languages; the English-leaning middle of the stack was present from the start and did not change with training, and the one language it did not improve (Telugu) was the one with the least tokeniser coverage.
-				\item Part 3: FairPO improved the rare privileged labels on MS-COCO and NUS-WIDE while keeping the frequent labels close to the reference, with each part of the framework contributing to the result.
+				\item Part 1: editing language-specific neurons, at test time or through targeted fine-tuning, did not improve cross-lingual transfer on XNLI and XQuAD, and several edits lowered performance.
+				\item Part 2: GRPO moved accuracy very little across seven MGSM languages, and the English-leaning middle of the stack was present from the start and did not change with training.
+				\item Part 3: FairPO improved the rare privileged labels on MS-COCO and NUS-WIDE while keeping the frequent labels close to the reference.
 			\end{itemize}
 		\end{block}
 		\begin{block}{\scriptsize What the Three Studies Point To}\scriptsize
 			\begin{itemize}
-				\item Acting on a small, localized set of internal components is not a reliable way to change cross-lingual behaviour. This held for the neuron edits in Part 1 and is consistent with Part 2, where the localized mechanism the collapse hypothesis points to was not what GRPO acted on.
-				\item The training objective is the more effective place to act, but only where the training signal reaches the model at a fine enough level: GRPO helped a language only with enough tokeniser resolution, and FairPO helped because its objective acted directly on the label pairs that needed separating.
-				\item A method that targets a chosen part of the label space and protects the rest can improve the targeted part without measurable harm to the rest, as FairPO showed.
+				\item Editing a small, localized set of internal components is not a reliable way to change behaviour (Part 1), and the collapse mechanism in Part 2 was present from the start rather than something training produced.
+				\item A well-targeted objective is the more effective lever: FairPO improved the chosen labels without measurable harm to the rest by acting directly on the pairs that needed separating.
 			\end{itemize}
 		\end{block}
 	\end{frame}
@@ -1075,24 +1190,23 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 	% ----------------------------------------------------------------------
 	% Slide 32: Limitations & Future Work
 	% ----------------------------------------------------------------------
-	\begin{frame}{Conclusion}
-		\framesubtitle{Limitations and Future Work}
-		\begin{block}{\scriptsize Limitations}\scriptsize
-			\begin{itemize}
-				\item Part 1 looks only at the MLP layers, uses two models and two tasks, and relies on Wikipedia statistics for the test-time interventions.
-				\item Part 2 uses one model family and one task, fine-tunes a low-rank adapter on the attention projections only, and depends on a logit-lens readout and a judge-based reward, both imperfect; the coverage counts are approximate.
-				\item Part 3 uses a frequency-based label partition on two image benchmarks, depends on a confusing set that changes during training, and needs care in tuning the group-robust balancing.
-			\end{itemize}
-		\end{block}
-		\begin{block}{\scriptsize Future Work}\scriptsize
-			\begin{itemize}
-				\item Cross-lingual transfer: since language is spread across the network, look at interventions on larger parts of the model, or on the training data and objective, rather than single neurons.
-				\item Tokeniser coverage: change the tokeniser or add tokens for a low-coverage language and check whether GRPO can then improve it, to test whether coverage is the cause or only a correlate.
-				\item Broader testing: run the same measurements on other model families, reasoning tasks, and more languages to see how far the per-layer pattern and the coverage effect hold.
-				\item Extending FairPO: apply it to other sources of disparity such as domain-set label importance, and to generation tasks where the groups are defined over attributes, and study the stability of the confusing set and the convergence of the minimax objective.
-			\end{itemize}
-		\end{block}
-	\end{frame}
+\begin{frame}{Conclusion}
+	\framesubtitle{Limitations and Future Work}
+	\begin{block}{\scriptsize Limitations}\scriptsize
+		\begin{itemize}
+			\item Part 1: only the MLP layers, two models, two tasks; test-time interventions rely on Wikipedia statistics.
+			\item Part 2: one model and one task, a low-rank adapter on the attention projections only, and a logit-lens readout and judge-based reward that are both imperfect.
+			\item Part 3: a frequency-based label partition on two image benchmarks, with a confusing set that changes during training and balancing that needs careful tuning.
+		\end{itemize}
+	\end{block}
+	\begin{block}{\scriptsize Future Work}\scriptsize
+		\begin{itemize}
+			\item Part 1: intervene on larger parts of the model, or on the training data and objective, rather than single neurons.
+			\item Part 2: train longer and reduce zero-variance groups, and test whether changing tokeniser coverage lets GRPO improve a low-resource language.
+			\item Part 3: extend FairPO to other sources of label disparity and to generation tasks, and study the stability of the confusing set and the minimax objective.
+		\end{itemize}
+	\end{block}
+\end{frame}
 	
 	% ----------------------------------------------------------------------
 	% Thank You
