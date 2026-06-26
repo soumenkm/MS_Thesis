@@ -582,206 +582,136 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 	\end{frame}
 	
 	% ----------------------------------------------------------------------
-	% Slide: Background -- GRPO objective + tools
+	% Slide: GRPO objective + analysis tools (merged)
 	% ----------------------------------------------------------------------
-	% ======================================================================
-	% Slide A: GRPO objective (full math)
-	% ======================================================================
 	\begin{frame}{Part 2: Cross-Lingual Mechanisms during GRPO Training}
-		\framesubtitle{Background: The GRPO Objective}
-		\begin{block}{\scriptsize Group-Relative Advantage}\scriptsize
-			\begin{itemize}
-				\item GRPO \autocite{shao2024deepseekmath} is an online policy-gradient method. Let $\pi_\theta$ be the policy, $\pi_{\theta_{\text{old}}}$ the policy at the start of the rollout, and $\pi_{\text{ref}}$ a frozen reference.
-				\item For prompt $i$, the policy generates $G$ responses $\{y_{i,j}\}_{j=1}^{G}$, each with a scalar reward $R_i^j$. Rather than a separate value model, GRPO standardizes the rewards within the group and uses that as the advantage:
-			\end{itemize}
-			\begin{equation}
-				\mu^i = \frac{1}{G}\sum_{j=1}^{G} R_i^j, \qquad
-				\sigma^i = \sqrt{\frac{1}{G}\sum_{j=1}^{G}\left(R_i^j - \mu^i\right)^2}, \qquad
-				A_i^j = \frac{R_i^j - \mu^i}{\sigma^i}.
-			\end{equation}
-			\begin{itemize}
-				\item The advantage $A_i^j$ is the same for every token of response $j$.
-			\end{itemize}
-		\end{block}
-		\begin{block}{\scriptsize Reward Signal}\scriptsize
-			\begin{itemize}
-				\item The reward $R_i^j$ is binary: an external judge accepts or rejects the final answer. It does not depend on the language of the reasoning.
-			\end{itemize}
-		\end{block}
-	\end{frame}
-	
-	% ======================================================================
-	% Slide B: GRPO loss (clipped objective + KL) and the analysis tools
-	% ======================================================================
-	\begin{frame}{Part 2: Cross-Lingual Mechanisms during GRPO Training}
-		\framesubtitle{Background: GRPO Loss and Analysis Tools}
+		\framesubtitle{Background: GRPO Objective and Analysis Tools}
 		\begin{columns}
 			\column{0.55\textwidth}
-			\begin{block}{\scriptsize Clipped Objective with KL Penalty}\scriptsize
+			\begin{block}{\scriptsize GRPO Objective}\scriptsize
 				\begin{itemize}
-					\item Let $r_{i,j,t}(\theta) = \dfrac{\pi_\theta(y_{i,j,t}\mid \cdot)}{\pi_{\theta_{\text{old}}}(y_{i,j,t}\mid \cdot)}$ be the per-token policy ratio. The per-response objective is the clipped term with a KL penalty against the reference:
+					\item For prompt $i$, the policy $\pi_\theta$ generates $G$ responses with rewards $R_i^j$; the advantage standardizes rewards within the group (no value model):
+				\end{itemize}
+				\begin{equation}
+					\mu^i = \frac{1}{G}\sum_{j} R_i^j, \quad
+					A_i^j = \frac{R_i^j - \mu^i}{\sigma^i}.
+				\end{equation}
+				\begin{itemize}
+					\item With per-token ratio $r_{i,j,t} = \pi_\theta / \pi_{\theta_{\text{old}}}$, the loss is the clipped objective with an KL penalty against the reference:
 				\end{itemize}
 				\begin{equation}
 					\begin{aligned}
-						\mathcal{L}_{i,j}^{\text{resp}} = \frac{1}{|y_{i,j}|}\sum_{t}\Big[ &\min\big( r_{i,j,t}\, A_i^j,\ \mathrm{clip}(r_{i,j,t}, 1-\epsilon, 1+\epsilon)\, A_i^j \big) \\
-						&- \beta\, \mathbb{D}_{\mathrm{KL}}\!\left( \pi_\theta \,\|\, \pi_{\text{ref}} \right) \Big].
+						\mathcal{L}_{\text{GRPO}} = -\frac{1}{|y_{i,j}|}\sum_{t}\Big[ &\min\big( r_{i,j,t} A_i^j,\ \mathrm{clip}(r_{i,j,t}, 1{-}\epsilon, 1{+}\epsilon) A_i^j \big) \\
+						&- \beta\big( \rho - \log \rho - 1 \big) \Big], \quad \rho = \frac{\pi_{\text{ref}}}{\pi_\theta}.
 					\end{aligned}
 				\end{equation}
-				\begin{equation}
-					\mathbb{D}_{\mathrm{KL}}\!\left( \pi_\theta \,\|\, \pi_{\text{ref}} \right)
-					= \frac{\pi_{\text{ref}}(y_{i,j,t}\mid \cdot)}{\pi_\theta(y_{i,j,t}\mid \cdot)}
-					- \log \frac{\pi_{\text{ref}}(y_{i,j,t}\mid \cdot)}{\pi_\theta(y_{i,j,t}\mid \cdot)} - 1 .
-				\end{equation}
 				\begin{itemize}
-					\item The batch loss averages over the group and the batch:
+					\item Reward $R_i^j$ is binary, from the verifier on the final answer.
 				\end{itemize}
-				\begin{equation}
-					\mathcal{L}_{\text{GRPO}}(\theta) = -\frac{1}{B}\sum_{i=1}^{B}\frac{1}{G}\sum_{j=1}^{G}\mathcal{L}_{i,j}^{\text{resp}}.
-				\end{equation}
 			\end{block}
 			\column{0.35\textwidth}
 			\begin{block}{\scriptsize Tools for Reading the Model}\scriptsize
 				\begin{itemize}
-					\item Logit lens \autocite{nostalgebraist2020logitlens}: apply the model's final normalization and output head to an intermediate layer's residual stream, giving a per-layer distribution over the vocabulary. We use it to ask, at each layer, which language the predicted token belongs to.
-					\item Centred Kernel Alignment (CKA) \autocite{kornblith2019similarity}: measures similarity between two sets of representations, unchanged under rotation and uniform scaling. We use it to compare a language with English at each layer, and a checkpoint with the base model.
+					\item Logit lens \autocite{nostalgebraist2020logitlens}: apply the final normalization and output head to an intermediate layer, giving a per-layer distribution over the vocabulary. We use it to ask which language the predicted token belongs to at each layer.
+					\item Centred Kernel Alignment \autocite{kornblith2019similarity}: similarity between two representation sets, invariant to rotation and uniform scaling. We use it to compare a language with English, and a checkpoint with the base model.
 				\end{itemize}
 			\end{block}
 		\end{columns}
 	\end{frame}
 	
 	% ----------------------------------------------------------------------
-	% Slide: Experimental setup
+	% Slide: Experimental setup + tokeniser coverage (merged)
 	% ----------------------------------------------------------------------
 	\begin{frame}{Part 2: Cross-Lingual Mechanisms during GRPO Training}
-		\framesubtitle{Experimental Setup}
+		\framesubtitle{Experimental Setup and Tokeniser Coverage}
 		\begin{columns}
 			\column{0.55\textwidth}
 			\begin{block}{\scriptsize Data, Model, and Reward}\scriptsize
 				\begin{itemize}
 					\item MGSM \autocite{shi2022mgsm}, seven languages: en, bn, te, th, ru, ja, zh. 200 train and 50 eval per language (1{,}400 / 350 total).
-					\item One-shot prompts; instruction and field headers in English, question and worked example in the target language; final answer as an English integer.
-					\item Policy: Qwen2.5-7B-Instruct ($L=28$, $d=3584$); frozen copy as reference.
-					\item Reward is binary, from a verifier combining a regex match with a GPT-4o-mini judge.
+					\item One-shot prompts; instruction and headers in English, question and worked example in the target language; final answer as an English integer.
+					\item Policy: Qwen2.5-7B-Instruct ($L=28$, $d=3584$), with a frozen copy as reference. Reward is binary, from a regex match with a GPT-4o-mini fallback judge.
+				\end{itemize}
+			\end{block}
+			\begin{block}{\scriptsize Assigning Each Token to a Language}\scriptsize
+				\begin{itemize}
+					\item Each vocabulary token is decoded and labelled by majority Unicode script over its letter-class characters; the per-language counts give the coverage at right.
 				\end{itemize}
 			\end{block}
 			\column{0.35\textwidth}
 			\begin{block}{\scriptsize Training Settings}\tiny
 				\centering
-				\renewcommand{\arraystretch}{1.15}
+				\renewcommand{\arraystretch}{1.1}
 				\begin{tabular}{ll}
 					\toprule
 					Setting & Value \\
 					\midrule
-					LoRA rank $r$ / $\alpha$ & 64 / 16 \\
-					LoRA targets & q,k,v,o\_proj \\
+					LoRA $r$ / $\alpha$ / targets & 64 / 16 /  q,k,v,o\_proj  \\
 					Group size $G$ & 4 \\
 					Clip $\epsilon$ / KL $\beta$ & 0.2 / 0.04 \\
-					Optimizer & AdamW \\
-					Peak LR & $1\times10^{-5}$ \\
-					Batch size $B$ & 8 prompts \\
-					Total steps & 620 \\
-					Checkpoints & every 20 (30 total) \\
-					Temperature / $p$ & 0.7 / 0.95 \\
-					Max new tokens & 512 \\
+					Optimizer / LR & AdamW / $1\times10^{-5}$ \\
+					Batch / steps / ckpt freq & 8 / 620 / every 20 \\
+					Temp. / $p$ / max tok. & 0.7 / 0.95 / 512 \\
 					\bottomrule
 				\end{tabular}
 			\end{block}
-		\end{columns}
-	\end{frame}
-	
-	% ----------------------------------------------------------------------
-	% Slide: Tokeniser coverage
-	% ----------------------------------------------------------------------
-	\begin{frame}{Part 2: Cross-Lingual Mechanisms during GRPO Training}
-		\framesubtitle{Tokeniser Coverage}
-		\begin{columns}
-			\column{0.35\textwidth}
-			\begin{block}{\scriptsize Script Tokens in the Qwen2.5 Vocabulary}\tiny
+			\begin{block}{\scriptsize Script Tokens in Qwen2.5 Vocabulary}\tiny
 				\centering
-				\renewcommand{\arraystretch}{1.2}
-				\begin{tabular}{llc}
+				\renewcommand{\arraystretch}{1.1}
+				\begin{tabular}{lc}
 					\toprule
-					Language & Coverage class & Tokens (approx.) \\
+					Language & Tokens (approx.) \\
 					\midrule
-					Chinese  & High (CJK base)  & $\sim 25{,}000$ \\
-					Japanese & High (kanji, kana) & $\sim 6{,}000$ \\
-					Russian  & High (Cyrillic)  & $\sim 4{,}000$ \\
-					Thai     & Mid              & $\sim 2{,}500$ \\
-					Bengali  & Low              & $\sim 46$ \\
-					Telugu   & Very low         & $\sim 14$ \\
-					English  & Bulk of vocab    & --- \\
+					Chinese  & $\sim 25{,}000$ \\
+					Japanese & $\sim 6{,}000$ \\
+					Russian  & $\sim 4{,}000$ \\
+					Thai     & $\sim 2{,}500$ \\
+					Bengali  & $\sim 46$ \\
+					Telugu   & $\sim 14$ \\
 					\bottomrule
 				\end{tabular}
-			\end{block}
-			\column{0.55\textwidth}
-			\begin{block}{\scriptsize Assigning Each Token to a Language}\scriptsize
-				\begin{itemize}
-					\item Each vocabulary token is decoded to its string form, then labelled by majority Unicode script over its letter-class characters.
-					\item Punctuation, digits, and whitespace are excluded from the tally and bucketed separately; model-internal and byte-fallback tokens are also set aside.
-					\item Japanese and Chinese share the Han script: a token with any hiragana or katakana is labelled Japanese, and a pure-Han token is labelled Chinese, following Wendler et al.\autocite{wendler2024llamas}.
-					\item Counting the resulting per-language tokens gives the coverage in the table.
-				\end{itemize}
 			\end{block}
 		\end{columns}
 	\end{frame}
 	
 	% ----------------------------------------------------------------------
-	% Slide: The five measurements
+	% Slide: The five measurements (single-slide table)
 	% ----------------------------------------------------------------------
-	% ======================================================================
-	% Slide A: measurements (i)-(iii)
-	% ======================================================================
 	\begin{frame}{Part 2: Cross-Lingual Mechanisms during GRPO Training}
-		\framesubtitle{The Five Measurements (1 of 3)}
-		\begin{block}{\scriptsize Accuracy (Observational Outcome)}\scriptsize
-			For checkpoint $j$ and prompt language $P$, the fraction of prompts (a prompt is denoted as $p$) whose stored CoT the verifier accepts (regex match with a GPT-4o-mini fallback judge):
-			\begin{equation}
-				\mathrm{Acc}_j(P) = \frac{1}{N_P} \sum_{p \, : \, \mathrm{lang}(p)=P} \mathbb{I}\!\left[ V(\mathrm{cot}_{p,j}) = \text{YES} \right] \in [0,1].
-			\end{equation}
+		\framesubtitle{The Five Measurements}
+		\begin{block}{\scriptsize Quantities Computed at Each Checkpoint $j$}\tiny
+			\renewcommand{\arraystretch}{2.2}
+			\setlength{\tabcolsep}{4pt}
+			\begin{tabular}{@{}p{0.16\textwidth} >{\centering\arraybackslash}p{0.46\textwidth} p{0.30\textwidth}@{}}
+				\toprule
+				Metric & Definition & Captures \\
+				\midrule
+				Accuracy &
+				$\displaystyle \mathrm{Acc}_j(P) = \frac{1}{N_P} \sum_{p:\,\mathrm{lang}(p)=P} \mathbb{I}\!\left[ V(\mathrm{cot}_{p,j}) = \text{YES} \right]$ &
+				Fraction of prompts in language $P$ the verifier accepts. \\
+				
+				CoT language probability (Plot 1) &
+				$\displaystyle Q_{j,i}(P,T) = \frac{1}{N_P}\!\! \sum_{p:\,\mathrm{lang}(p)=P} \frac{1}{C_p} \sum_{k=1}^{C_p} \tilde{P}_T(p,j,i,k)$ &
+				Top-50 logit-lens mass on language $T$ at layer $i$, renormalized over the seven languages. \\
+				
+				Fraction of layers in phase (Plot 2) &
+				$\displaystyle F_{j,\Phi}(P,T) = \frac{1}{N_P}\!\! \sum_{p:\,\mathrm{lang}(p)=P} \frac{1}{C_p} \sum_{k=1}^{C_p} \frac{1}{|\Phi|} \sum_{i \in \Phi} \mathbb{I}\!\left[ \mathrm{top1} = T \right]$ &
+				Share of top-1 predictions in language $T$ over the layers of phase $\Phi$. \\
+				
+				English-minus-target gap (Plot 2b) &
+				$\displaystyle \Delta_{j,\Phi}(P,T) = F_{j,\Phi}(P,\text{en}) - F_{j,\Phi}(P,T)$ &
+				How far English leads the target $T$ in a phase; positive means English ahead. \\
+				
+				CKA similarity (Plot 4) &
+				$\displaystyle \mathrm{CKA}(X,Y) = \frac{\lVert Y^\top X \rVert_F^2}{\lVert X^\top X \rVert_F\, \lVert Y^\top Y \rVert_F}$, $\displaystyle \mathrm{CKA}_{j,i}(T) = \mathrm{CKA}\!\left( X^{(\text{en})}_{j,i}, X^{(T)}_{j,i} \right)$, $\displaystyle D_{j,i}(P) = \mathrm{CKA}\!\left( X^{(P)}_{0,i}, X^{(P)}_{j,i} \right)$ &
+				Representation similarity of $T$ to English, and drift of $P$ from step 0. \\
+				\bottomrule
+			\end{tabular}
+				\vspace{0.5em}
+			{\tiny $j$: checkpoint, \; $i$: layer ($0 \le i \le L{-}1$, $L{=}28$), \; $p$: prompt, \; $k$: CoT position, \; $\Phi \in \{\text{early},\text{mid},\text{late}\}$, \; $\mathrm{top1}$: language of the argmax token.}
 		\end{block}
-		\begin{block}{\scriptsize CoT Language Probability (Plot 1)}\scriptsize
-			Let $\tilde{P}_T(p,j,i,k)$ be the top-50 logit-lens mass on language $T$ for a prompt $p$, at checkpoint $j$, layer $i$, position $k$, renormalized over the seven languages. Averaged over positions and prompts:
-			\begin{equation}
-				Q_{j,i}(P,T) = \frac{1}{N_P} \sum_{p \, : \, \mathrm{lang}(p)=P} \frac{1}{C_p} \sum_{k=1}^{C_p} \tilde{P}_T(p,j,i,k) \in [0,1].
-			\end{equation}
-		\end{block}
-	\end{frame}
 	
-	\begin{frame}{Part 2: Cross-Lingual Mechanisms during GRPO Training}
-		\framesubtitle{The Five Measurements (2 of 3)}
-		\begin{block}{\scriptsize Fraction of Layers in Phase (Plot 2)}\scriptsize
-			Layers $0 \le i \le L{-}1$ ($L=28$) split into phases $\Phi \in \{\text{early},\text{mid},\text{late}\}$; $\mathrm{top1}(\cdot)$ is the language of the argmax token:
-			\begin{equation}
-				F_{j,\Phi}(P,T) = \frac{1}{N_P} \sum_{p \, : \, \mathrm{lang}(p)=P} \frac{1}{C_p} \sum_{k=1}^{C_p} \frac{1}{|\Phi|} \sum_{i \in \Phi} \mathbb{I}\!\left[ \mathrm{top1}(p,j,i,k) = T \right].
-			\end{equation}
-			Non-language argmax tokens contribute zero, so $\sum_T F_{j,\Phi}(P,T)$ need not equal one.
-		\end{block}
-		\begin{block}{\scriptsize English-Minus-Target Gap (Plot 2b/3)}\scriptsize
-			Built on the same top-1 fraction as Plot 2: for phase $\Phi$, the share of top-1 predictions that are English minus the share that are the target language $T$:
-			\begin{equation}
-				\Delta_{j,\Phi}(P,T) = F_{j,\Phi}(P,\text{en}) - F_{j,\Phi}(P,T).
-			\end{equation}
-			A positive $\Delta$ means English leads the target language in that phase. 
-		\end{block}
-	\end{frame}
-	
-	% ======================================================================
-	% Slide B: measurements (iv)-(v)
-	% ======================================================================
-	\begin{frame}{Part 2: Cross-Lingual Mechanisms during GRPO Training}
-		\framesubtitle{The Five Measurements (3 of 3)}
 		
-		\begin{block}{\scriptsize CKA Similarity (Plot 4)}\scriptsize
-			Linear CKA in Gram form, on stacks of mean-CoT activations $X^{(L)}_{j,i}$ (rows centred, $K_X = X_c X_c^\top$):
-			\begin{equation}
-				\mathrm{CKA}(X,Y) = \frac{\langle K_X, K_Y \rangle_F}{\lVert K_X \rVert_F\, \lVert K_Y \rVert_F}.
-			\end{equation}
-			Cross-lingual similarity to English, and drift from the base model (step $0$):
-			\begin{equation}
-				\mathrm{CKA}_{j,i}(T) = \mathrm{CKA}\!\left( X^{(\text{en})}_{j,i}, X^{(T)}_{j,i} \right), \qquad
-				D_{j,i}(P) = \mathrm{CKA}\!\left( X^{(P)}_{0,i}, X^{(P)}_{j,i} \right).
-			\end{equation}
-		\end{block}
 	\end{frame}
 	
 	% ----------------------------------------------------------------------
@@ -822,17 +752,10 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 	\begin{frame}{Part 2: Cross-Lingual Mechanisms during GRPO Training}
 		\framesubtitle{Result: Per-Layer Language Distribution (Plot 1)}
 		\begin{columns}
-			\column{0.65\textwidth}
+			\column{0.75\textwidth}
 			\begin{block}{\scriptsize Top-50 Logit-Lens Mass per Language, by Layer and Step}\scriptsize
 				\centering
-				\includegraphics[width=\linewidth]{combined_plot1_ppt.png}
-			\end{block}
-			\column{0.25\textwidth}
-			\begin{block}{\scriptsize Reading}\scriptsize
-				\begin{itemize}
-					\item For a non-English prompt, early and middle layers put most probability mass on English; the target language carries most mass only in the last two or three layers. The pattern is the same across prompt languages.
-					\item It is flat across all 620 steps: GRPO neither builds up nor removes the English-leaning middle.
-				\end{itemize}
+				\includegraphics[width=\textwidth]{combined_plot1_ppt.png}
 			\end{block}
 		\end{columns}
 	\end{frame}
@@ -846,18 +769,10 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 	\begin{frame}{Part 2: Cross-Lingual Mechanisms during GRPO Training}
 		\framesubtitle{Result: Fraction of Layers in Each Phase (Plot 2)}
 		\begin{columns}
-			\column{0.65\textwidth}
+			\column{0.85\textwidth}
 			\begin{block}{\scriptsize Top-1 Language Share per Phase, by Step}\scriptsize
 				\centering
 				\includegraphics[width=\linewidth]{combined_plot2.png}
-			\end{block}
-			\column{0.25\textwidth}
-			\begin{block}{\scriptsize Reading}\scriptsize
-				\begin{itemize}
-					\item For a non-English prompt, English holds the largest top-1 share in the early and middle phases, highest in the middle.
-					\item The target language holds the largest share mainly in the late phase.
-					\item The phase shares are flat across the 620 steps.
-				\end{itemize}
 			\end{block}
 		\end{columns}
 	\end{frame}
@@ -868,18 +783,10 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 	\begin{frame}{Part 2: Cross-Lingual Mechanisms during GRPO Training}
 		\framesubtitle{Result: English-Minus-Target Gap (Plot 2b/3)}
 		\begin{columns}
-			\column{0.65\textwidth}
+			\column{\textwidth}
 			\begin{block}{\scriptsize Per-Layer Gap between English and Target Top-1 Fractions}\scriptsize
 				\centering
 				\includegraphics[width=\linewidth]{combined_plot2_gap.png}
-			\end{block}
-			\column{0.25\textwidth}
-			\begin{block}{\scriptsize Reading}\scriptsize
-				\begin{itemize}
-					\item The gap is positive through the early and middle layers, so English leads the target language there.
-					\item At the last layer the prompts differ: for Thai the gap turns negative as the target overtakes English, while for Telugu it stays positive.
-					\item The gap is flat across the 620 steps.
-				\end{itemize}
 			\end{block}
 		\end{columns}
 	\end{frame}
@@ -890,18 +797,10 @@ autocite=footnote, citetracker=false, ibidtracker=false]{biblatex}
 \begin{frame}{Part 2: Cross-Lingual Mechanisms during GRPO Training}
 	\framesubtitle{Result: Similarity to English and Drift from Step 0 (Plot 4)}
 	\begin{columns}
-		\column{0.65\textwidth}
+		\column{0.75\textwidth}
 		\begin{block}{\scriptsize Layer-Averaged CKA across Training}\scriptsize
 			\centering
 			\includegraphics[width=\linewidth]{combined_plot4_ppt.png}
-		\end{block}
-		\column{0.25\textwidth}
-		\begin{block}{\scriptsize Reading}\scriptsize
-			\begin{itemize}
-				\item Similarity to English (left) is flat over training and tracks coverage: Telugu and Bengali lowest, Russian middle, Thai/Japanese/Chinese highest.
-				\item Drift from step 0 (right): every language stays above about 0.90, except Telugu, which drops to about 0.63.
-				\item The language that does not improve is the one whose representations move the most.
-			\end{itemize}
 		\end{block}
 	\end{columns}
 \end{frame}
